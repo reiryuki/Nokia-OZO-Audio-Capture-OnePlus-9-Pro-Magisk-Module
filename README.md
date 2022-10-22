@@ -20,7 +20,6 @@
 - Magisk installed
 
 ## Installation Guide & Download Link
-- Reboot
 - Install this module via Magisk Manager or Recovery
 - Install AML Magisk Module https://zackptg5.com/android.php#aml only if using any other audio mod module
 - Reboot
