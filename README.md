@@ -17,6 +17,7 @@
 - https://t.me/androidryukimodsdiscussions/116460
 
 ## Requirements
+- Android 11 and up
 - Magisk installed
 
 ## Installation Guide & Download Link
