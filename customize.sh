@@ -80,7 +80,7 @@ conflict() {
 for NAMES in $NAME; do
   DIR=/data/adb/modules_update/$NAMES
   if [ -f $DIR/uninstall.sh ]; then
-    . $DIR/uninstall.sh
+    sh $DIR/uninstall.sh
   fi
   rm -rf $DIR
   DIR=/data/adb/modules/$NAMES
@@ -88,7 +88,7 @@ for NAMES in $NAME; do
   touch $DIR/remove
   FILE=/data/adb/modules/$NAMES/uninstall.sh
   if [ -f $FILE ]; then
-    . $FILE
+    sh $FILE
     rm -f $FILE
   fi
   rm -rf /metadata/magisk/$NAMES
@@ -102,11 +102,11 @@ done
 # function
 cleanup() {
 if [ -f $DIR/uninstall.sh ]; then
-  . $DIR/uninstall.sh
+  sh $DIR/uninstall.sh
 fi
 DIR=/data/adb/modules_update/$MODID
 if [ -f $DIR/uninstall.sh ]; then
-  . $DIR/uninstall.sh
+  sh $DIR/uninstall.sh
 fi
 }
 
@@ -232,51 +232,9 @@ ui_print "$SYSTEM$FILE"
 ui_print "  Please wait..."
 if ! grep -Eq $NAME $SYSTEM$FILE; then
   ui_print "  ! Function not found."
-  if [ "`grep_prop change.system $OPTIONALS`" == 1 ]\
-  && [ "$API" -ge 30 ]; then
-    sed -i 's/^change.system=1/change.system=0/' $OPTIONALS
-    ui_print "  Installing new $FILE..."
-    ui_print "  If your device reboot automatically, then install this"
-    ui_print "  module again after reboot."
-    sleep 5
-    ui_print "  Your original files are stored to"
-    ui_print "  /data/adb/system_original/"
-    mkdir -p /data/adb/system_original/vendor/lib
-    mkdir -p /data/adb/system_original/vendor/lib64
-    cp $VENDOR$FILE /data/adb/system_original/vendor$FILE
-    cp -f $MODPATH/system_support/vendor$FILE $VENDOR$FILE
-    if ! grep -Eq $NAME $VENDOR$FILE; then
-      ui_print "  ! $VENDOR$FILE"
-      ui_print "    installation failed."
-      ui_print "  Using new $FILE systemlessly."
-      cp -f $MODPATH/system_support/vendor$FILE $MODPATH/system/vendor$FILE
-    fi
-    mkdir -p /data/adb/system_original/lib
-    mkdir -p /data/adb/system_original/lib64
-    cp $SYSTEM$FILE /data/adb/system_original/$FILE
-    cp -f $MODPATH/system_support$FILE $SYSTEM$FILE
-    if ! grep -Eq $NAME $SYSTEM$FILE; then
-      ui_print "  ! $SYSTEM$FILE"
-      ui_print "    installation failed."
-      ui_print "  Using new $FILE systemlessly."
-      cp -f $MODPATH/system_support$FILE $MODPATH/system$FILE
-    fi
-  else
-    if [ "$API" -ge 30 ]; then
-      ui_print "  Using new $FILE systemlessly."
-      cp -f $MODPATH/system_support/vendor$FILE $MODPATH/system/vendor$FILE
-      cp -f $MODPATH/system_support$FILE $MODPATH/system$FILE
-      ui_print "  If this module still doesn't work, type:"
-      ui_print "  change.system=1"
-      ui_print "  inside $OPTIONALS"
-      ui_print "  and reinstall this module"
-      ui_print "  to install new $FILE directly to this ROM."
-      ui_print "  DwYOR!"
-    else
-      remount_ro
-      abort
-    fi
-  fi
+  ui_print "    Unsupported ROM."
+  remount_ro
+  abort
 fi
 ui_print " "
 }
@@ -291,8 +249,12 @@ NAME=_ZN7android23sp_report_stack_pointerEv
 if [ "$IS64BIT" == true ]; then
   FILE=/lib64/libhidlbase.so
   check_function
+  FILE=/lib64/libutils.so
+  check_function
 fi
 FILE=/lib/libhidlbase.so
+check_function
+FILE=/lib/libutils.so
 check_function
 NAME=_ZN7android8hardware23getOrCreateCachedBinderEPNS_4hidl4base4V1_05IBaseE
 if [ "$IS64BIT" == true ]; then
