@@ -1,22 +1,7 @@
 MODPATH=${0%/*}
 
-# magisk
-if [ -d /sbin/.magisk ]; then
-  MAGISKTMP=/sbin/.magisk
-else
-  MAGISKTMP=`realpath /dev/*/.magisk`
-fi
-
-# path
-MIRROR=$MAGISKTMP/mirror
-VENDOR=`realpath $MIRROR/vendor`
-
 # destination
-if [ -d $VENDOR/lib/soundfx ]; then
-  LIBPATH="\/vendor\/lib\/soundfx"
-else
-  LIBPATH="\/system\/lib\/soundfx"
-fi
+LIBPATH="\/vendor\/lib\/soundfx"
 MODAEC=`find $MODPATH/system -type f -name *audio*effects*.conf`
 MODAEX=`find $MODPATH/system -type f -name *audio*effects*.xml`
 

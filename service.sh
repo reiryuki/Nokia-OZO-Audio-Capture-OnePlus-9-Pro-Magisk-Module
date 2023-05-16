@@ -6,29 +6,33 @@ AML=/data/adb/modules/aml
 exec 2>$MODPATH/debug.log
 set -x
 
-# function
-stop_service() {
-for NAMES in $NAME; do
-  if getprop | grep "init.svc.$NAMES\]: \[running"; then
-    stop $NAMES
-  fi
-done
-}
-run_service() {
-for FILES in $FILE; do
-  killall $FILES
-  $FILES &
-  PID=`pidof $FILES`
-done
-}
+# restart
+if [ "$API" -ge 24 ]; then
+  SERVER=audioserver
+else
+  SERVER=mediaserver
+fi
+PID=`pidof $SERVER`
+if [ "$PID" ]; then
+  killall $SERVER
+fi
 
 # stop
-NAME=vendor-ozoaudio-media-c2-hal-1-0
-stop_service
+NAMES=vendor-ozoaudio-media-c2-hal-1-0
+for NAME in $NAMES; do
+  if [ "`getprop init.svc.$NAME`" == running ]\
+  || [ "`getprop init.svc.$NAME`" == restarting ]; then
+    stop $NAME
+  fi
+done
 
 # run
-FILE=`realpath /vendor`/bin/hw/vendor.ozoaudio.media.c2@1.0-service
-run_service
+SERVICES=`realpath /vendor`/bin/hw/vendor.ozoaudio.media.c2@1.0-service
+for SERVICE in $SERVICES; do
+  killall $SERVICE
+  $SERVICE &
+  PID=`pidof $SERVICE`
+done
 
 # wait
 sleep 20
@@ -39,6 +43,15 @@ if [ -d $DIR ] && [ ! -f $AML/disable ]; then
   chcon -R u:object_r:vendor_configs_file:s0 $DIR
 fi
 
+# magisk
+MAGISKPATH=`magisk --path`
+if [ "$MAGISKPATH" ]; then
+  MAGISKTMP=$MAGISKPATH/.magisk
+  MIRROR=$MAGISKTMP/mirror
+  ODM=$MIRROR/odm
+  MY_PRODUCT=$MIRROR/my_product
+fi
+
 # mount
 NAME="*audio*effects*.conf -o -name *audio*effects*.xml"
 if [ -d $AML ] && [ ! -f $AML/disable ]\
@@ -47,37 +60,49 @@ if [ -d $AML ] && [ ! -f $AML/disable ]\
 else
   DIR=$MODPATH/system/vendor
 fi
-FILE=`find $DIR/etc -maxdepth 1 -type f -name $NAME`
-if [ "`realpath /odm/etc`" == /odm/etc ] && [ "$FILE" ]; then
-  for i in $FILE; do
-    j="/odm$(echo $i | sed "s|$DIR||")"
-    if [ -f $j ]; then
-      umount $j
-      mount -o bind $i $j
+FILES=`find $DIR/etc -maxdepth 1 -type f -name $NAME`
+if [ ! -d $ODM ] && [ -d /odm/etc ]\
+&& [ "`realpath /odm/etc`" == /odm/etc ]\
+&& [ "$FILES" ]; then
+  for FILE in $FILES; do
+    DES="/odm`echo $FILE | sed "s|$DIR||"`"
+    if [ -f $DES ]; then
+      umount $DES
+      mount -o bind $FILE $DES
     fi
   done
 fi
-if [ -d /my_product/etc ] && [ "$FILE" ]; then
-  for i in $FILE; do
-    j="/my_product$(echo $i | sed "s|$DIR||")"
-    if [ -f $j ]; then
-      umount $j
-      mount -o bind $i $j
+if [ ! -d $MY_PRODUCT ] && [ -d /my_product/etc ]\
+&& [ "$FILES" ]; then
+  for FILE in $FILES; do
+    DES="/my_product`echo $FILE | sed "s|$DIR||"`"
+    if [ -f $DES ]; then
+      umount $DES
+      mount -o bind $FILE $DES
     fi
   done
 fi
 
-# restart
-if [ "$API" -ge 24 ]; then
-  PID=`pidof audioserver`
-  if [ "$PID" ]; then
-    killall audioserver
+# wait
+until [ "`getprop sys.boot_completed`" == "1" ]; do
+  sleep 10
+done
+
+# check
+for SERVICE in $SERVICES; do
+  if ! pidof $SERVICE; then
+    $SERVICE &
+    PID=`pidof $SERVICE`
   fi
-else
-  PID=`pidof mediaserver`
-  if [ "$PID" ]; then
-    killall mediaserver
-  fi
-fi
+done
+
+
+
+
+
+
+
+
+
 
 

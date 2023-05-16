@@ -17,11 +17,11 @@
 
 ## Requirements
 - Android 11 and up
-- Magisk installed
+- Magisk or KernelSU installed
 
 ## Installation Guide & Download Link
-- Install this module https://www.pling.com/p/1924947/ via Magisk Manager or Recovery
-- Install AML Magisk Module https://zackptg5.com/android.php#aml only if using any other audio mod module
+- Install this module https://www.pling.com/p/1924947/ via Magisk app or KernelSU app or Recovery (unless you are using KernelSU)
+- Install AML Magisk Module https://t.me/androidryukimodsdiscussions/29836 only if using any other audio mod module
 - Reboot
 
 ## Optionals
@@ -37,6 +37,7 @@
 
 ## Tested on
 - Android 13 AOSP ROM
+- Android 13 CrDroid ROM
 
 ## Credits and contributors
 - https://t.me/viperatmos
