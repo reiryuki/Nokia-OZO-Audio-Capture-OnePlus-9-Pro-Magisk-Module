@@ -245,18 +245,18 @@ fi
 NAME=_ZN7android4base15WriteStringToFdERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS0_11borrowed_fdE
 TARGET="$MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
         $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so"
-LISTS=`strings $TARGET | grep .so | sed 's/libavservices_minijail_vendor.so//' | sed 's/libcodec2_hidl@1.0.so//'`
+LISTS=`strings $TARGET | grep .so | sed 's/libavservices_minijail_vendor.so//' | sed 's/libcodec2_hidl@1.0.so//' | sed 's/android.hardware.media.c2@1.0.so//' | sed 's/libcodec2_vndk.so//' | sed 's/libstagefright_bufferpool@2.0.1.so//' | sed 's/libminijail.so//' | sed 's/kXoso//'`
 FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
 check_function
 if [ "$IS64BIT" == true ]; then
   TARGET=libcodec2_hidl@1.0.so
-  LISTS=`strings $MODPATH/system/vendor/lib64/$TARGET | grep .so | sed "s/$TARGET//"`
+  LISTS=`strings $MODPATH/system/vendor/lib64/$TARGET | grep .so | sed "s/$TARGET//" | sed 's/android.hardware.media.c2@1.0.so//' | sed 's/libcodec2_vndk.so//' | sed 's/libstagefright_bufferpool@2.0.1.so//'`
   FILE=`for LIST in $LISTS; do echo $SYSTEM/lib64/$LIST; done`
   check_function
 fi
 NAME=_ZN7android22GraphicBufferAllocator17allocateRawHandleEjjijyPPK13native_handlePjNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEE
 TARGET=libcodec2_vndk.so
-LISTS=`strings $MODPATH/system/vendor/lib/$TARGET | grep .so | sed "s/$TARGET//"`
+LISTS=`strings $MODPATH/system/vendor/lib/$TARGET | grep .so | sed "s/$TARGET//" | sed 's/libstagefright_bufferpool@2.0.1.so//'`
 FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
 check_function
 
