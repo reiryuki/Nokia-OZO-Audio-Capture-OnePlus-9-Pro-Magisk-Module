@@ -2,7 +2,7 @@
 
 ## DISCLAIMER
 - Nokia OZO Audio Capture blobs are owned by Nokia™.
-- The MIT license specified here is for the Magisk Module, not for Nokia OZO Audio Capture blobs.
+- The MIT license specified here is for the Magisk Module only, not for Nokia OZO Audio Capture blobs.
 
 ## Descriptions
 - Audio quality enhancements for audio/video recordings ported from OnePlus 9 Pro (oneplus9pro) and integrated as a Magisk Module for all supported and rooted devices with Magisk
@@ -20,7 +20,7 @@
 - Magisk or KernelSU installed
 
 ## Installation Guide & Download Link
-- Install this module https://www.pling.com/p/1924947/ via Magisk app or KernelSU app or Recovery (unless you are using KernelSU)
+- Install this module https://www.pling.com/p/1924947/ via Magisk app or KernelSU app or Recovery if Magisk installed
 - Install AML Magisk Module https://t.me/androidryukimodsdiscussions/29836 only if using any other audio mod module
 - Reboot
 
@@ -36,8 +36,7 @@
 - If you don't do above, issues will be closed immediately
 
 ## Tested on
-- Android 13 AOSP ROM
-- Android 13 CrDroid ROM
+- Android 13 AOSP ROM & CrDroid ROM
 
 ## Credits and contributors
 - https://t.me/viperatmos
@@ -45,7 +44,7 @@
 - You can contribute ideas about this Magisk Module here: https://t.me/androidappsportdevelopment
 
 ## Thanks for Donations
-- This Magisk Module is always will be free but you can however show us that you are care by making a donations:
+This Magisk Module is always will be free but you can however show us that you are care by making a donations:
 - https://ko-fi.com/reiryuki
 - https://www.paypal.me/reiryuki
 - https://t.me/androidryukimodsdiscussions/2619

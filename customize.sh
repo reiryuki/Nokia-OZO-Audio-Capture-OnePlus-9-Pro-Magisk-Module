@@ -1,6 +1,17 @@
 # space
 ui_print " "
 
+# log
+if [ "$BOOTMODE" != true ]; then
+  FILE=/sdcard/$MODID\_recovery.log
+  ui_print "- Log will be saved at $FILE"
+  exec 2>$FILE
+  ui_print " "
+fi
+
+# run
+. $MODPATH/function.sh
+
 # info
 MODVER=`grep_prop version $MODPATH/module.prop`
 MODVERCODE=`grep_prop versionCode $MODPATH/module.prop`
@@ -11,199 +22,57 @@ if [ "$KSU" == true ]; then
   ui_print " KSUVersion=$KSU_VER"
   ui_print " KSUVersionCode=$KSU_VER_CODE"
   ui_print " KSUKernelVersionCode=$KSU_KERNEL_VER_CODE"
+  sed -i 's|#k||g' $MODPATH/post-fs-data.sh
 else
   ui_print " MagiskVersion=$MAGISK_VER"
   ui_print " MagiskVersionCode=$MAGISK_VER_CODE"
 fi
 ui_print " "
 
-# huskydg function
-get_device() {
-PAR="$1"
-DEV="`cat /proc/self/mountinfo | awk '{ if ( $5 == "'$PAR'" ) print $3 }' | head -1 | sed 's/:/ /g'`"
-}
-mount_mirror() {
-SRC="$1"
-DES="$2"
-RAN="`head -c6 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9'`"
-while [ -e /dev/$RAN ]; do
-  RAN="`head -c6 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9'`"
-done
-mknod /dev/$RAN b `get_device "$SRC"; echo $DEV`
-if mount -t ext4 -o ro /dev/$RAN "$DES"\
-|| mount -t erofs -o ro /dev/$RAN "$DES"\
-|| mount -t f2fs -o ro /dev/$RAN "$DES"\
-|| mount -t ubifs -o ro /dev/$RAN "$DES"; then
-  blockdev --setrw /dev/$RAN
-  rm -f /dev/$RAN
-  return 0
-fi
-rm -f /dev/$RAN
-return 1
-}
-unmount_mirror() {
-DIRS="$MIRROR/system_root $MIRROR/system $MIRROR/vendor
-      $MIRROR/product $MIRROR/system_ext $MIRROR/odm
-      $MIRROR/my_product $MIRROR"
-for DIR in $DIRS; do
-  umount $DIR
-done
-}
-mount_partitions_to_mirror() {
-unmount_mirror
-# mount system
-if [ "$SYSTEM_ROOT" == true ]; then
-  DIR=/system_root
-  ui_print "- Mount $MIRROR$DIR..."
-  mkdir -p $MIRROR$DIR
-  if mount_mirror / $MIRROR$DIR; then
-    ui_print "  $MIRROR$DIR mount success"
-    rm -rf $MIRROR/system
-    ln -sf $MIRROR$DIR/system $MIRROR
-    ls $MIRROR$DIR
-  else
-    ui_print "  ! $MIRROR$DIR mount failed"
-    rm -rf $MIRROR$DIR
-  fi
-else
-  DIR=/system
-  ui_print "- Mount $MIRROR$DIR..."
-  mkdir -p $MIRROR$DIR
-  if mount_mirror $DIR $MIRROR$DIR; then
-    ui_print "  $MIRROR$DIR mount success"
-    ls $MIRROR$DIR
-  else
-    ui_print "  ! $MIRROR$DIR mount failed"
-    rm -rf $MIRROR$DIR
-  fi
-fi
-ui_print " "
-# mount vendor
-DIR=/vendor
-ui_print "- Mount $MIRROR$DIR..."
-mkdir -p $MIRROR$DIR
-if mount_mirror $DIR $MIRROR$DIR; then
-  ui_print "  $MIRROR$DIR mount success"
-  ls $MIRROR$DIR
-else
-  ui_print "  ! $MIRROR$DIR mount failed"
-  rm -rf $MIRROR$DIR
-  ln -sf $MIRROR/system$DIR $MIRROR
-fi
-ui_print " "
-# mount product
-DIR=/product
-ui_print "- Mount $MIRROR$DIR..."
-mkdir -p $MIRROR$DIR
-if mount_mirror $DIR $MIRROR$DIR; then
-  ui_print "  $MIRROR$DIR mount success"
-  ls $MIRROR$DIR
-else
-  ui_print "  ! $MIRROR$DIR mount failed"
-  rm -rf $MIRROR$DIR
-  ln -sf $MIRROR/system$DIR $MIRROR
-fi
-ui_print " "
-# mount system_ext
-DIR=/system_ext
-ui_print "- Mount $MIRROR$DIR..."
-mkdir -p $MIRROR$DIR
-if mount_mirror $DIR $MIRROR$DIR; then
-  ui_print "  $MIRROR$DIR mount success"
-  ls $MIRROR$DIR
-else
-  ui_print "  ! $MIRROR$DIR mount failed"
-  rm -rf $MIRROR$DIR
-  if [ -d $MIRROR/system$DIR ]; then
-    ln -sf $MIRROR/system$DIR $MIRROR
-  fi
-fi
-ui_print " "
-# mount odm
-DIR=/odm
-ui_print "- Mount $MIRROR$DIR..."
-mkdir -p $MIRROR$DIR
-if mount_mirror $DIR $MIRROR$DIR; then
-  ui_print "  $MIRROR$DIR mount success"
-  ls $MIRROR$DIR
-else
-  ui_print "  ! $MIRROR$DIR mount failed"
-  rm -rf $MIRROR$DIR
-  if [ -d $MIRROR/system_root$DIR ]; then
-    ln -sf $MIRROR/system_root$DIR $MIRROR
-  fi
-fi
-ui_print " "
-# mount my_product
-DIR=/my_product
-ui_print "- Mount $MIRROR$DIR..."
-mkdir -p $MIRROR$DIR
-if mount_mirror $DIR $MIRROR$DIR; then
-  ui_print "  $MIRROR$DIR mount success"
-  ls $MIRROR$DIR
-else
-  ui_print "  ! $MIRROR$DIR mount failed"
-  rm -rf $MIRROR$DIR
-  if [ -d $MIRROR/system_root$DIR ]; then
-    ln -sf $MIRROR/system_root$DIR $MIRROR
-  fi
-fi
-ui_print " "
-}
-
-# magisk
-MAGISKPATH=`magisk --path`
-if [ "$BOOTMODE" == true ]; then
-  if [ "$MAGISKPATH" ]; then
-    MAGISKTMP=$MAGISKPATH/.magisk
-    MIRROR=$MAGISKTMP/mirror
-  else
-    MAGISKTMP=/mnt
-    MIRROR=$MAGISKTMP/mirror
-    mount_partitions_to_mirror
-  fi
-fi
-
-# path
-SYSTEM=`realpath $MIRROR/system`
-PRODUCT=`realpath $MIRROR/product`
-VENDOR=`realpath $MIRROR/vendor`
-SYSTEM_EXT=`realpath $MIRROR/system_ext`
-if [ -d $MIRROR/odm ]; then
-  ODM=`realpath $MIRROR/odm`
-else
-  ODM=`realpath /odm`
-fi
-if [ -d $MIRROR/my_product ]; then
-  MY_PRODUCT=`realpath $MIRROR/my_product`
-else
-  MY_PRODUCT=`realpath /my_product`
-fi
-
-# optionals
-OPTIONALS=/sdcard/optionals.prop
-if [ ! -f $OPTIONALS ]; then
-  touch $OPTIONALS
-fi
-
 # bit
 if [ "$IS64BIT" == true ]; then
   ui_print "- 64 bit"
 else
   ui_print "- 32 bit"
-  rm -rf `find $MODPATH/system -type d -name *64`
+  rm -rf `find $MODPATH -type d -name *64*`
 fi
 ui_print " "
 
-# mount
-if [ "$BOOTMODE" != true ]; then
-  if [ -e /dev/block/bootdevice/by-name/vendor ]; then
-    mount -o rw -t auto /dev/block/bootdevice/by-name/vendor /vendor
-  else
-    mount -o rw -t auto /dev/block/bootdevice/by-name/cust /vendor
+# recovery
+mount_partitions_in_recovery
+
+# magisk
+magisk_setup
+
+# path
+SYSTEM=`realpath $MIRROR/system`
+if [ "$BOOTMODE" == true ]; then
+  if [ ! -d $MIRROR/vendor ]; then
+    mount_vendor_to_mirror
   fi
-  mount -o rw -t auto /dev/block/bootdevice/by-name/persist /persist
-  mount -o rw -t auto /dev/block/bootdevice/by-name/metadata /metadata
+  if [ ! -d $MIRROR/product ]; then
+    mount_product_to_mirror
+  fi
+  if [ ! -d $MIRROR/system_ext ]; then
+    mount_system_ext_to_mirror
+  fi
+  if [ ! -d $MIRROR/odm ]; then
+    mount_odm_to_mirror
+  fi
+  if [ ! -d $MIRROR/my_product ]; then
+    mount_my_product_to_mirror
+  fi
+fi
+VENDOR=`realpath $MIRROR/vendor`
+PRODUCT=`realpath $MIRROR/product`
+SYSTEM_EXT=`realpath $MIRROR/system_ext`
+ODM=`realpath $MIRROR/odm`
+MY_PRODUCT=`realpath $MIRROR/my_product`
+
+# optionals
+OPTIONALS=/sdcard/optionals.prop
+if [ ! -f $OPTIONALS ]; then
+  touch $OPTIONALS
 fi
 
 # function
@@ -213,7 +82,7 @@ ui_print "$NAME"
 ui_print "  function at"
 ui_print "$FILE"
 ui_print "  Please wait..."
-if ! grep -Eq $NAME $FILE; then
+if ! grep -q $NAME $FILE; then
   ui_print "  ! Function not found."
   ui_print "    Unsupported ROM."
   if [ "$BOOTMODE" == true ] && [ ! "$MAGISKPATH" ]; then
@@ -232,33 +101,87 @@ if [ "$IS64BIT" == true ]; then
   FILE=$VENDOR/lib64/hw/*audio*.so
   check_function
 fi
+
+# check
 NAME=_ZN7android8hardware23getOrCreateCachedBinderEPNS_4hidl4base4V1_05IBaseE
-TARGET=android.hardware.media.c2@1.0.so
-LISTS=`strings $MODPATH/system/vendor/lib/$TARGET | grep .so | sed "s/$TARGET//"`
-FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-check_function
+DES=android.hardware.media.c2@1.0.so
+LIB=libhidlbase.so
 if [ "$IS64BIT" == true ]; then
-  LISTS=`strings $MODPATH/system/vendor/lib64/$TARGET | grep .so | sed "s/$TARGET//"`
+  LISTS=`strings $MODPATH/system/vendor/lib64/$DES | grep .so | sed "s|$DES||g"`
   FILE=`for LIST in $LISTS; do echo $SYSTEM/lib64/$LIST; done`
-  check_function
+  ui_print "- Checking"
+  ui_print "$NAME"
+  ui_print "  function at"
+  ui_print "$FILE"
+  ui_print "  Please wait..."
+  if ! grep -q $NAME $FILE; then
+    ui_print "  Using new $LIB 64"
+    mv -f $MODPATH/system_support/lib64/$LIB $MODPATH/system/lib64
+  fi
+  ui_print " "
 fi
+LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed "s|$DES||g"`
+FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+ui_print "- Checking"
+ui_print "$NAME"
+ui_print "  function at"
+ui_print "$FILE"
+ui_print "  Please wait..."
+if ! grep -q $NAME $FILE; then
+  ui_print "  Using new $LIB"
+  mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+fi
+ui_print " "
+
+# check
 NAME=_ZN7android4base15WriteStringToFdERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS0_11borrowed_fdE
-TARGET="$MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
-        $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so"
-LISTS=`strings $TARGET | grep .so | sed 's/libavservices_minijail_vendor.so//' | sed 's/libcodec2_hidl@1.0.so//' | sed 's/android.hardware.media.c2@1.0.so//' | sed 's/libcodec2_vndk.so//' | sed 's/libstagefright_bufferpool@2.0.1.so//' | sed 's/libminijail.so//' | sed 's/kXoso//'`
-FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-check_function
+LIB=libbase.so
 if [ "$IS64BIT" == true ]; then
-  TARGET=libcodec2_hidl@1.0.so
-  LISTS=`strings $MODPATH/system/vendor/lib64/$TARGET | grep .so | sed "s/$TARGET//" | sed 's/android.hardware.media.c2@1.0.so//' | sed 's/libcodec2_vndk.so//' | sed 's/libstagefright_bufferpool@2.0.1.so//'`
+  DES=libcodec2_hidl@1.0.so
+  LISTS=`strings $MODPATH/system/vendor/lib64/$DES | grep .so | sed -e "s|$DES||g" -e 's|android.hardware.media.c2@1.0.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libstagefright_bufferpool@2.0.1.so||g'`
   FILE=`for LIST in $LISTS; do echo $SYSTEM/lib64/$LIST; done`
-  check_function
+  ui_print "- Checking"
+  ui_print "$NAME"
+  ui_print "  function at"
+  ui_print "$FILE"
+  ui_print "  Please wait..."
+  if ! grep -q $NAME $FILE; then
+    ui_print "  Using new $LIB 64"
+    mv -f $MODPATH/system_support/lib64/$LIB $MODPATH/system/lib64
+  fi
+  ui_print " "
 fi
-NAME=_ZN7android22GraphicBufferAllocator17allocateRawHandleEjjijyPPK13native_handlePjNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEE
-TARGET=libcodec2_vndk.so
-LISTS=`strings $MODPATH/system/vendor/lib/$TARGET | grep .so | sed "s/$TARGET//" | sed 's/libstagefright_bufferpool@2.0.1.so//'`
+DES="$MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
+     $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so"
+LISTS=`strings $DES | grep .so | sed -e 's|libavservices_minijail_vendor.so||g' -e 's|libcodec2_hidl@1.0.so||g' -e 's|android.hardware.media.c2@1.0.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libstagefright_bufferpool@2.0.1.so||g' -e 's|libminijail.so||g' -e 's|kXoso||g'`
 FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-check_function
+ui_print "- Checking"
+ui_print "$NAME"
+ui_print "  function at"
+ui_print "$FILE"
+ui_print "  Please wait..."
+if ! grep -q $NAME $FILE; then
+  ui_print "  Using new $LIB"
+  mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+fi
+ui_print " "
+
+# check
+NAME=_ZN7android22GraphicBufferAllocator17allocateRawHandleEjjijyPPK13native_handlePjNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEE
+DES=libcodec2_vndk.so
+LIB=libui.so
+LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed -e "s|$DES||g" -e 's|libstagefright_bufferpool@2.0.1.so||g'`
+FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+ui_print "- Checking"
+ui_print "$NAME"
+ui_print "  function at"
+ui_print "$FILE"
+ui_print "  Please wait..."
+if ! grep -q $NAME $FILE; then
+  ui_print "  Using new $LIB"
+  mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+fi
+ui_print " "
 
 # sepolicy
 FILE=$MODPATH/sepolicy.rule
@@ -274,36 +197,8 @@ mv -f $MODPATH/aml.sh $MODPATH/.aml.sh
 # cleaning
 ui_print "- Cleaning..."
 rm -rf $MODPATH/unused
-rm -rf /metadata/magisk/$MODID
-rm -rf /mnt/vendor/persist/magisk/$MODID
-rm -rf /persist/magisk/$MODID
-rm -rf /data/unencrypted/magisk/$MODID
-rm -rf /cache/magisk/$MODID
+remove_sepolicy_rule
 ui_print " "
-
-# function
-conflict() {
-for NAMES in $NAME; do
-  DIR=/data/adb/modules_update/$NAMES
-  if [ -f $DIR/uninstall.sh ]; then
-    sh $DIR/uninstall.sh
-  fi
-  rm -rf $DIR
-  DIR=/data/adb/modules/$NAMES
-  rm -f $DIR/update
-  touch $DIR/remove
-  FILE=/data/adb/modules/$NAMES/uninstall.sh
-  if [ -f $FILE ]; then
-    sh $FILE
-    rm -f $FILE
-  fi
-  rm -rf /metadata/magisk/$NAMES
-  rm -rf /mnt/vendor/persist/magisk/$NAMES
-  rm -rf /persist/magisk/$NAMES
-  rm -rf /data/unencrypted/magisk/$NAMES
-  rm -rf /cache/magisk/$NAMES
-done
-}
 
 # function
 cleanup() {
@@ -324,7 +219,7 @@ if [ "`grep_prop data.cleanup $OPTIONALS`" == 1 ]; then
   ui_print "- Cleaning-up $MODID data..."
   cleanup
   ui_print " "
-elif [ -d $DIR ] && ! grep -Eq "$MODNAME" $FILE; then
+elif [ -d $DIR ] && ! grep -q "$MODNAME" $FILE; then
   ui_print "- Different version detected"
   ui_print "  Cleaning-up $MODID data..."
   cleanup
@@ -332,130 +227,77 @@ elif [ -d $DIR ] && ! grep -Eq "$MODNAME" $FILE; then
 fi
 
 # function
-set_read_write() {
-for NAME in $NAMES; do
-  if [ -e $DIR$NAME ]; then
-    blockdev --setrw $DIR$NAME
-  fi
-done
-}
-remount_rw() {
-DIR=/dev/block/bootdevice/by-name
-NAMES="/vendor$SLOT /cust$SLOT /system$SLOT /system_ext$SLOT"
-set_read_write
-DIR=/dev/block/mapper
-set_read_write
-DIR=$MAGISKTMP/block
-NAMES="/vendor /system_root /system /system_ext"
-set_read_write
-mount -o rw,remount $MAGISKTMP/mirror/system
-mount -o rw,remount $MAGISKTMP/mirror/system_root
-mount -o rw,remount $MAGISKTMP/mirror/system_ext
-mount -o rw,remount $MAGISKTMP/mirror/vendor
-mount -o rw,remount /system
-mount -o rw,remount /
-mount -o rw,remount /system_root
-mount -o rw,remount /system_ext
-mount -o rw,remount /vendor
-}
-remount_ro() {
-if [ "$BOOTMODE" == true ]; then
-  mount -o ro,remount $MAGISKTMP/mirror/system
-  mount -o ro,remount $MAGISKTMP/mirror/system_root
-  mount -o ro,remount $MAGISKTMP/mirror/system_ext
-  mount -o ro,remount $MAGISKTMP/mirror/vendor
-  mount -o ro,remount /system
-  mount -o ro,remount /
-  mount -o ro,remount /system_root
-  mount -o ro,remount /system_ext
-  mount -o ro,remount /vendor
-fi
-}
 find_file() {
-for NAMES in $NAME; do
-  FILE=`find $SYSTEM $VENDOR $SYSTEM_EXT -type f -name $NAMES`
+for NAME in $NAMES; do
+  if [ "$IS64BIT" == true ]; then
+    FILE=`find $SYSTEM/lib64 $VENDOR/lib64 $SYSTEM_EXT/lib64 -type f -name $NAME`
+    if [ ! "$FILE" ]; then
+      if [ "`grep_prop install.hwlib $OPTIONALS`" == 1 ]; then
+        ui_print "- Installing $NAME 64 directly to"
+        ui_print "$SYSTEM/lib64..."
+        cp $MODPATH/system_support/lib64/$NAME $SYSTEM/lib64
+        DES=$SYSTEM/lib64/$NAME
+        if [ -f $MODPATH/system_support/lib64/$NAME ]\
+        && [ ! -f $DES ]; then
+          ui_print "  ! Installation failed."
+          ui_print "    Using $NAME 64 systemlessly."
+          cp -f $MODPATH/system_support/lib64/$NAME $MODPATH/system/lib64
+        fi
+      else
+        ui_print "! $NAME 64 not found."
+        ui_print "  Using $NAME 64 systemlessly."
+        cp -f $MODPATH/system_support/lib64/$NAME $MODPATH/system/lib64
+        ui_print "  If this module still doesn't work, type:"
+        ui_print "  install.hwlib=1"
+        ui_print "  inside $OPTIONALS"
+        ui_print "  and reinstall this module"
+        ui_print "  to install $NAME 64 directly to this ROM."
+        ui_print "  DwYOR!"
+      fi
+      ui_print " "
+    fi
+  fi
+  FILE=`find $SYSTEM/lib $VENDOR/lib $SYSTEM_EXT/lib -type f -name $NAME`
   if [ ! "$FILE" ]; then
     if [ "`grep_prop install.hwlib $OPTIONALS`" == 1 ]; then
-      sed -i 's/^install.hwlib=1/install.hwlib=0/' $OPTIONALS
-      ui_print "- Installing $NAMES directly to /system and /vendor..."
-      cp $MODPATH/system_support/lib/$NAMES $SYSTEM/lib
-      cp $MODPATH/system_support/lib64/$NAMES $SYSTEM/lib64
-      cp $MODPATH/system_support/vendor/lib/$NAMES $VENDOR/lib
-      cp $MODPATH/system_support/vendor/lib64/$NAMES $VENDOR/lib64
-      DES=$SYSTEM/lib/$NAMES
-      DES2=$SYSTEM/lib64/$NAMES
-      DES3=$VENDOR/lib/$NAMES
-      DES4=$VENDOR/lib64/$NAMES
-      if [ -f $MODPATH/system_support/lib/$NAMES ]\
+      ui_print "- Installing $NAME directly to"
+      ui_print "$SYSTEM/lib..."
+      cp $MODPATH/system_support/lib/$NAME $SYSTEM/lib
+      DES=$SYSTEM/lib/$NAME
+      if [ -f $MODPATH/system_support/lib/$NAME ]\
       && [ ! -f $DES ]; then
-        ui_print "  ! $DES"
-        ui_print "    installation failed."
-        ui_print "  Using $NAMES systemlessly."
-        cp -f $MODPATH/system_support/lib/$NAMES $MODPATH/system/lib
-      fi
-      if [ -f $MODPATH/system_support/lib64/$NAMES ]\
-      && [ ! -f $DES2 ]; then
-        ui_print "  ! $DES2"
-        ui_print "    installation failed."
-        ui_print "  Using $NAMES systemlessly."
-        cp -f $MODPATH/system_support/lib64/$NAMES $MODPATH/system/lib64
-      fi
-      if [ -f $MODPATH/system_support/vendor/lib/$NAMES ]\
-      && [ ! -f $DES3 ]; then
-        ui_print "  ! $DES3"
-        ui_print "    installation failed."
-        ui_print "  Using $NAMES systemlessly."
-        cp -f $MODPATH/system_support/vendor/lib/$NAMES $MODPATH/system/vendor/lib
-      fi
-      if [ -f $MODPATH/system_support/vendor/lib64/$NAMES ]\
-      && [ ! -f $DES4 ]; then
-        ui_print "  ! $DES4"
-        ui_print "    installation failed."
-        ui_print "  Using $NAMES systemlessly."
-        cp -f $MODPATH/system_support/vendor/lib64/$NAMES $MODPATH/system/vendor/lib64
+        ui_print "  ! Installation failed."
+        ui_print "    Using $NAME systemlessly."
+        cp -f $MODPATH/system_support/lib/$NAME $MODPATH/system/lib
       fi
     else
-      ui_print "! $NAMES not found."
-      ui_print "  Using $NAMES systemlessly."
-      cp -f $MODPATH/system_support/lib/$NAMES $MODPATH/system/lib
-      cp -f $MODPATH/system_support/lib64/$NAMES $MODPATH/system/lib64
-      cp -f $MODPATH/system_support/vendor/lib/$NAMES $MODPATH/system/vendor/lib
-      cp -f $MODPATH/system_support/vendor/lib64/$NAMES $MODPATH/system/vendor/lib64
+      ui_print "! $NAME not found."
+      ui_print "  Using $NAME systemlessly."
+      cp -f $MODPATH/system_support/lib/$NAME $MODPATH/system/lib
       ui_print "  If this module still doesn't work, type:"
       ui_print "  install.hwlib=1"
       ui_print "  inside $OPTIONALS"
       ui_print "  and reinstall this module"
-      ui_print "  to install $NAMES directly to this ROM."
+      ui_print "  to install $NAME directly to this ROM."
       ui_print "  DwYOR!"
     fi
     ui_print " "
   fi
 done
+sed -i 's|^install.hwlib=1|install.hwlib=0|g' $OPTIONALS
 }
 
 # check
 remount_rw
 chcon -R u:object_r:system_lib_file:s0 $MODPATH/system_support/lib*
-chcon -R u:object_r:same_process_hal_file:s0 $MODPATH/system_support/vendor/lib*
-NAME="libhidltransport.so libhwbinder.so"
+NAMES="libhidltransport.so libhwbinder.so"
 find_file
 remount_ro
 rm -rf $MODPATH/system_support
 
-# permission
-ui_print "- Setting permission..."
-FILE=`find $MODPATH/system/vendor/bin -type f`
-for FILES in $FILE; do
-  chmod 0755 $FILES
-  chown 0.2000 $FILES
-done
-chmod 0751 $MODPATH/system/vendor/bin
-chmod 0751 $MODPATH/system/vendor/bin/hw
-DIR=`find $MODPATH/system/vendor -type d`
-for DIRS in $DIR; do
-  chown 0.2000 $DIRS
-done
-ui_print " "
+# run
+. $MODPATH/copy.sh
+. $MODPATH/.aml.sh
 
 # unmount
 if [ "$BOOTMODE" == true ] && [ ! "$MAGISKPATH" ]; then

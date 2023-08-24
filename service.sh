@@ -1,10 +1,14 @@
 MODPATH=${0%/*}
-API=`getprop ro.build.version.sdk`
-AML=/data/adb/modules/aml
 
-# debug
+# log
 exec 2>$MODPATH/debug.log
 set -x
+
+# var
+API=`getprop ro.build.version.sdk`
+
+# prop
+resetprop ro.audio.ignore_effects false
 
 # restart
 if [ "$API" -ge 24 ]; then
@@ -38,49 +42,46 @@ done
 sleep 20
 
 # aml fix
-DIR=$AML/system/vendor/odm/etc
+AML=/data/adb/modules/aml
+if [ -L $AML/system/vendor ]\
+&& [ -d $AML/vendor ]; then
+  DIR=$AML/vendor/odm/etc
+else
+  DIR=$AML/system/vendor/odm/etc
+fi
 if [ -d $DIR ] && [ ! -f $AML/disable ]; then
   chcon -R u:object_r:vendor_configs_file:s0 $DIR
 fi
-
-# magisk
-MAGISKPATH=`magisk --path`
-if [ "$MAGISKPATH" ]; then
-  MAGISKTMP=$MAGISKPATH/.magisk
-  MIRROR=$MAGISKTMP/mirror
-  ODM=$MIRROR/odm
-  MY_PRODUCT=$MIRROR/my_product
-fi
-
-# mount
-NAME="*audio*effects*.conf -o -name *audio*effects*.xml"
-if [ -d $AML ] && [ ! -f $AML/disable ]\
-&& find $AML/system/vendor -type f -name $NAME; then
-  DIR=$AML/system/vendor
+AUD=`grep AUD= $MODPATH/copy.sh | sed -e 's|AUD=||g' -e 's|"||g'`
+if [ -L $AML/system/vendor ]\
+&& [ -d $AML/vendor ]; then
+  DIR=$AML/vendor
 else
-  DIR=$MODPATH/system/vendor
+  DIR=$AML/system/vendor
 fi
-FILES=`find $DIR/etc -maxdepth 1 -type f -name $NAME`
-if [ ! -d $ODM ] && [ -d /odm/etc ]\
-&& [ "`realpath /odm/etc`" == /odm/etc ]\
-&& [ "$FILES" ]; then
-  for FILE in $FILES; do
-    DES="/odm`echo $FILE | sed "s|$DIR||"`"
-    if [ -f $DES ]; then
-      umount $DES
-      mount -o bind $FILE $DES
-    fi
-  done
-fi
-if [ ! -d $MY_PRODUCT ] && [ -d /my_product/etc ]\
-&& [ "$FILES" ]; then
-  for FILE in $FILES; do
-    DES="/my_product`echo $FILE | sed "s|$DIR||"`"
-    if [ -f $DES ]; then
-      umount $DES
-      mount -o bind $FILE $DES
-    fi
-  done
+FILES=`find $DIR -type f -name $AUD`
+if [ -d $AML ] && [ ! -f $AML/disable ]\
+&& find $DIR -type f -name $AUD; then
+  if ! grep '/odm' $AML/post-fs-data.sh && [ -d /odm ]\
+  && [ "`realpath /odm/etc`" == /odm/etc ]; then
+    for FILE in $FILES; do
+      DES=/odm`echo $FILE | sed "s|$DIR||g"`
+      if [ -f $DES ]; then
+        umount $DES
+        mount -o bind $FILE $DES
+      fi
+    done
+  fi
+  if ! grep '/my_product' $AML/post-fs-data.sh\
+  && [ -d /my_product ]; then
+    for FILE in $FILES; do
+      DES=/my_product`echo $FILE | sed "s|$DIR||g"`
+      if [ -f $DES ]; then
+        umount $DES
+        mount -o bind $FILE $DES
+      fi
+    done
+  fi
 fi
 
 # wait
