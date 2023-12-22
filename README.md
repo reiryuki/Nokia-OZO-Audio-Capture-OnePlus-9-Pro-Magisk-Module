@@ -16,7 +16,6 @@
 - https://t.me/androidryukimodsdiscussions/116460
 
 ## Requirements
-- Android 11 and up
 - Magisk or KernelSU installed
 
 ## Installation Guide & Download Link
@@ -25,11 +24,11 @@
 - Reboot
 
 ## Optionals
-- https://t.me/androidryukimodsdiscussions/60861
-- https://t.me/androidryukimodsdiscussions/26764
+- Global: https://t.me/androidryukimodsdiscussions/60861
+- Stream: https://t.me/androidryukimodsdiscussions/26764
 
 ## Troubleshootings
-- https://t.me/androidryukimodsdiscussions/29836
+- Global: https://t.me/androidryukimodsdiscussions/29836
 
 ## Support & Bug Report
 - https://t.me/androidryukimodsdiscussions/2618

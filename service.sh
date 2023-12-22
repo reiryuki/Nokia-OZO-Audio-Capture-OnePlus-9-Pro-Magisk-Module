@@ -8,7 +8,7 @@ set -x
 API=`getprop ro.build.version.sdk`
 
 # prop
-resetprop ro.audio.ignore_effects false
+resetprop -n ro.audio.ignore_effects false
 
 # restart
 if [ "$API" -ge 24 ]; then
@@ -18,9 +18,12 @@ else
 fi
 PID=`pidof $SERVER`
 if [ "$PID" ]; then
-  killall $SERVER
+  killall $SERVER android.hardware.audio@4.0-service-mediatek
 fi
 
+
+# function
+ozo_audio_service() {
 # stop
 NAMES=vendor-ozoaudio-media-c2-hal-1-0
 for NAME in $NAMES; do
@@ -29,14 +32,43 @@ for NAME in $NAMES; do
     stop $NAME
   fi
 done
-
 # run
 SERVICES=`realpath /vendor`/bin/hw/vendor.ozoaudio.media.c2@1.0-service
 for SERVICE in $SERVICES; do
   killall $SERVICE
+  if ! stat -c %a $SERVICE | grep -E '755|775|777|757'\
+  || [ "`stat -c %u.%g $SERVICE`" != 0.2000 ]; then
+    mount -o remount,rw $SERVICE
+    chmod 0755 $SERVICE
+    chown 0.2000 $SERVICE
+    chcon u:object_r:mediacodec_exec:s0 $SERVICE
+  fi
   $SERVICE &
   PID=`pidof $SERVICE`
 done
+}
+check_service() {
+for SERVICE in $SERVICES; do
+  if ! pidof $SERVICE; then
+    $SERVICE &
+    PID=`pidof $SERVICE`
+  fi
+done
+}
+task_service() {
+sleep 1
+FILE=/dev/cpuset/foreground/tasks
+if [ "$PID" ]; then
+  for pid in $PID; do
+    if ! grep $pid $FILE; then
+      echo $pid > $FILE
+    fi
+  done
+fi
+}
+
+# service
+#oozo_audio_service
 
 # wait
 sleep 20
@@ -90,12 +122,13 @@ until [ "`getprop sys.boot_completed`" == "1" ]; do
 done
 
 # check
-for SERVICE in $SERVICES; do
-  if ! pidof $SERVICE; then
-    $SERVICE &
-    PID=`pidof $SERVICE`
-  fi
-done
+#ocheck_service
+
+# task
+#otask_service
+
+# audio flinger
+DMAF=`dumpsys media.audio_flinger`
 
 
 

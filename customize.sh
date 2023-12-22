@@ -1,11 +1,31 @@
 # space
 ui_print " "
 
+# var
+UID=`id -u`
+LIST32BIT=`grep_get_prop ro.product.cpu.abilist32`
+if [ ! "$LIST32BIT" ]; then
+  LIST32BIT=`grep_get_prop ro.system.product.cpu.abilist32`
+fi
+
 # log
 if [ "$BOOTMODE" != true ]; then
-  FILE=/sdcard/$MODID\_recovery.log
+  FILE=/data/media/"$UID"/$MODID\_recovery.log
   ui_print "- Log will be saved at $FILE"
   exec 2>$FILE
+  ui_print " "
+fi
+
+# optionals
+OPTIONALS=/data/media/"$UID"/optionals.prop
+if [ ! -f $OPTIONALS ]; then
+  touch $OPTIONALS
+fi
+
+# debug
+if [ "`grep_prop debug.log $OPTIONALS`" == 1 ]; then
+  ui_print "- The install log will contain detailed information"
+  set -x
   ui_print " "
 fi
 
@@ -31,12 +51,34 @@ ui_print " "
 
 # bit
 if [ "$IS64BIT" == true ]; then
-  ui_print "- 64 bit"
+  ui_print "- 64 bit architecture"
+  ui_print " "
+  # 32 bit
+  if [ "$LIST32BIT" ]; then
+    ui_print "- 32 bit library support"
+    CODEC=true
+  else
+    ui_print "- Doesn't support 32 bit library"
+    rm -rf $MODPATH/armeabi-v7a $MODPATH/x86\
+     $MODPATH/system*/lib $MODPATH/system*/vendor/lib
+    CODEC=false
+  fi
+  ui_print " "
 else
-  ui_print "- 32 bit"
+  ui_print "- 32 bit architecture"
   rm -rf `find $MODPATH -type d -name *64*`
+  CODEC=true
+  ui_print " "
 fi
-ui_print " "
+
+# directory
+if [ "$API" -le 25 ]; then
+  ui_print "- /vendor/lib*/soundfx is not supported in SDK 25 and bellow"
+  ui_print "  Using /system/lib*/soundfx instead"
+  cp -rf $MODPATH/system/vendor/lib* $MODPATH/system
+  rm -rf $MODPATH/system/vendor/lib*
+  ui_print " "
+fi
 
 # recovery
 mount_partitions_in_recovery
@@ -69,119 +111,140 @@ SYSTEM_EXT=`realpath $MIRROR/system_ext`
 ODM=`realpath $MIRROR/odm`
 MY_PRODUCT=`realpath $MIRROR/my_product`
 
-# optionals
-OPTIONALS=/sdcard/optionals.prop
-if [ ! -f $OPTIONALS ]; then
-  touch $OPTIONALS
-fi
-
-# function
-check_function() {
-ui_print "- Checking"
-ui_print "$NAME"
-ui_print "  function at"
-ui_print "$FILE"
-ui_print "  Please wait..."
-if ! grep -q $NAME $FILE; then
-  ui_print "  ! Function not found."
-  ui_print "    Unsupported ROM."
-  if [ "$BOOTMODE" == true ] && [ ! "$MAGISKPATH" ]; then
-    unmount_mirror
-  fi
-  abort
-fi
-ui_print " "
-}
-
 # check
-NAME=_ZN7android23sp_report_stack_pointerEv
-FILE=$VENDOR/lib/hw/*audio*.so
-check_function
-if [ "$IS64BIT" == true ]; then
-  FILE=$VENDOR/lib64/hw/*audio*.so
-  check_function
+if [ $CODEC == true ]; then
+  NAME=_ZN7android23sp_report_stack_pointerEv
+  DES=libcodec2_soft_ozodec.so
+  LISTS=`strings $MODPATH/system_codec/vendor/lib/$DES | grep ^lib | grep .so | sed -e "s|$DES||g" -e 's|libozoc2store.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libav_ozodecoder.so||g' -e 's|libav_ozoencoder.so||g'`
+  FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+  ui_print "- Checking"
+  ui_print "$NAME"
+  ui_print "  function at"
+  ui_print "$FILE"
+  ui_print "  Please wait..."
+  if ! grep -q $NAME $FILE; then
+    CODEC=false
+    ui_print "  Function not found"
+  fi
+  ui_print " "
 fi
+
+# codec
+if [ $CODEC == true ]; then
+  cp -rf $MODPATH/system_codec/* $MODPATH/system
+  sed -i 's|#o||g' $MODPATH/service.sh
+else
+  ui_print "- Using OZO Audio encoder only"
+  ui_print "  Does not use OZO Audio decoder"
+  ui_print " "
+fi
+rm -rf $MODPATH/system_codec
 
 # check
 NAME=_ZN7android8hardware23getOrCreateCachedBinderEPNS_4hidl4base4V1_05IBaseE
 DES=android.hardware.media.c2@1.0.so
 LIB=libhidlbase.so
-if [ "$IS64BIT" == true ]; then
-  LISTS=`strings $MODPATH/system/vendor/lib64/$DES | grep .so | sed "s|$DES||g"`
-  FILE=`for LIST in $LISTS; do echo $SYSTEM/lib64/$LIST; done`
-  ui_print "- Checking"
-  ui_print "$NAME"
-  ui_print "  function at"
-  ui_print "$FILE"
-  ui_print "  Please wait..."
-  if ! grep -q $NAME $FILE; then
-    ui_print "  Using new $LIB 64"
-    mv -f $MODPATH/system_support/lib64/$LIB $MODPATH/system/lib64
+if [ $CODEC == true ]; then
+  if [ -f $VENDOR/lib/$DES ]; then
+    ui_print "- Detected /vendor/lib/$DES"
+    ui_print " "
+    rm -f $MODPATH/system/vendor/lib/$DES
+  else
+    LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed "s|$DES||g"`
+    FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+    ui_print "- Checking"
+    ui_print "$NAME"
+    ui_print "  function at"
+    ui_print "$FILE"
+    ui_print "  Please wait..."
+    if ! grep -q $NAME $FILE; then
+      ui_print "  Replaces /system/lib/$LIB"
+      mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+    fi
+    ui_print " "
   fi
-  ui_print " "
 fi
-LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed "s|$DES||g"`
-FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-ui_print "- Checking"
-ui_print "$NAME"
-ui_print "  function at"
-ui_print "$FILE"
-ui_print "  Please wait..."
-if ! grep -q $NAME $FILE; then
-  ui_print "  Using new $LIB"
-  mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
-fi
-ui_print " "
 
 # check
 NAME=_ZN7android4base15WriteStringToFdERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS0_11borrowed_fdE
-LIB=libbase.so
-if [ "$IS64BIT" == true ]; then
-  DES=libcodec2_hidl@1.0.so
-  LISTS=`strings $MODPATH/system/vendor/lib64/$DES | grep .so | sed -e "s|$DES||g" -e 's|android.hardware.media.c2@1.0.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libstagefright_bufferpool@2.0.1.so||g'`
-  FILE=`for LIST in $LISTS; do echo $SYSTEM/lib64/$LIST; done`
-  ui_print "- Checking"
-  ui_print "$NAME"
-  ui_print "  function at"
-  ui_print "$FILE"
-  ui_print "  Please wait..."
-  if ! grep -q $NAME $FILE; then
-    ui_print "  Using new $LIB 64"
-    mv -f $MODPATH/system_support/lib64/$LIB $MODPATH/system/lib64
-  fi
-  ui_print " "
-fi
 DES="$MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
      $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so"
-LISTS=`strings $DES | grep .so | sed -e 's|libavservices_minijail_vendor.so||g' -e 's|libcodec2_hidl@1.0.so||g' -e 's|android.hardware.media.c2@1.0.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libstagefright_bufferpool@2.0.1.so||g' -e 's|libminijail.so||g' -e 's|kXoso||g'`
-FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-ui_print "- Checking"
-ui_print "$NAME"
-ui_print "  function at"
-ui_print "$FILE"
-ui_print "  Please wait..."
-if ! grep -q $NAME $FILE; then
-  ui_print "  Using new $LIB"
-  mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+LIB=libbase.so
+if [ $CODEC == true ]; then
+  if [ -f $VENDOR/lib/libavservices_minijail_vendor.so ]; then
+    ui_print "- Detected /vendor/lib/libavservices_minijail_vendor.so"
+    ui_print " "
+    rm -f $MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
+  fi
+  if [ -f $VENDOR/lib/libcodec2_hidl@1.0.so ]; then
+    ui_print "- Detected /vendor/lib/libcodec2_hidl@1.0.so"
+    ui_print " "
+    rm -f $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so
+  fi
+  if [ ! -f $VENDOR/lib/libavservices_minijail_vendor.so ]\
+  || [ ! -f $VENDOR/lib/libcodec2_hidl@1.0.so ]; then
+    LISTS=`strings $DES | grep .so | sed -e 's|libavservices_minijail_vendor.so||g' -e 's|libcodec2_hidl@1.0.so||g' -e 's|android.hardware.media.c2@1.0.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libstagefright_bufferpool@2.0.1.so||g' -e 's|libminijail.so||g' -e 's|kXoso||g'`
+    LISTS=`echo $LISTS | tr ' ' '\n' | sort | uniq`
+    FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+    ui_print "- Checking"
+    ui_print "$NAME"
+    ui_print "  function at"
+    ui_print "$FILE"
+    ui_print "  Please wait..."
+    if ! grep -q $NAME $FILE; then
+      ui_print "  Replaces /system/lib/$LIB"
+      mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+    fi
+    ui_print " "
+  fi
 fi
-ui_print " "
 
 # check
 NAME=_ZN7android22GraphicBufferAllocator17allocateRawHandleEjjijyPPK13native_handlePjNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEE
 DES=libcodec2_vndk.so
 LIB=libui.so
-LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed -e "s|$DES||g" -e 's|libstagefright_bufferpool@2.0.1.so||g'`
-FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-ui_print "- Checking"
-ui_print "$NAME"
-ui_print "  function at"
-ui_print "$FILE"
-ui_print "  Please wait..."
-if ! grep -q $NAME $FILE; then
-  ui_print "  Using new $LIB"
-  mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+if [ $CODEC == true ]; then
+  if [ -f $VENDOR/lib/$DES ]; then
+    ui_print "- Detected /vendor/lib/$DES"
+    ui_print " "
+    rm -f $MODPATH/system/vendor/lib/$DES
+  else
+    LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed -e "s|$DES||g" -e 's|libstagefright_bufferpool@2.0.1.so||g'`
+    FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+    ui_print "- Checking"
+    ui_print "$NAME"
+    ui_print "  function at"
+    ui_print "$FILE"
+    ui_print "  Please wait..."
+    if ! grep -q $NAME $FILE; then
+      ui_print "  Replaces /system/lib/$LIB"
+      mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
+    fi
+    ui_print " "
+  fi
 fi
-ui_print " "
+
+# function
+file_check_vendor() {
+for FILE in $FILES; do
+  DES=$VENDOR$FILE
+  DES2=$ODM$FILE
+#  if [ -f $DES ] || [ -f $DES2 ]; then
+  if [ -f $DES ]; then
+#    ui_print "- Detected $FILE"
+    ui_print "- Detected /vendor$FILE"
+    ui_print " "
+    rm -f $MODPATH/system/vendor$FILE
+  fi
+done
+}
+
+# check
+if [ $CODEC == true ]; then
+  FILES="/lib/libminijail.so
+         /lib/libstagefright_bufferpool@2.0.1.so"
+  file_check_vendor
+fi
 
 # sepolicy
 FILE=$MODPATH/sepolicy.rule
@@ -214,12 +277,14 @@ fi
 # cleanup
 DIR=/data/adb/modules/$MODID
 FILE=$DIR/module.prop
+PREVMODNAME=`grep_prop name $FILE`
 if [ "`grep_prop data.cleanup $OPTIONALS`" == 1 ]; then
-  sed -i 's/^data.cleanup=1/data.cleanup=0/' $OPTIONALS
+  sed -i 's|^data.cleanup=1|data.cleanup=0|g' $OPTIONALS
   ui_print "- Cleaning-up $MODID data..."
   cleanup
   ui_print " "
-elif [ -d $DIR ] && ! grep -q "$MODNAME" $FILE; then
+elif [ -d $DIR ]\
+&& [ "$PREVMODNAME" != "$MODNAME" ]; then
   ui_print "- Different version detected"
   ui_print "  Cleaning-up $MODID data..."
   cleanup
@@ -227,72 +292,24 @@ elif [ -d $DIR ] && ! grep -q "$MODNAME" $FILE; then
 fi
 
 # function
-find_file() {
+run_find_file() {
 for NAME in $NAMES; do
-  if [ "$IS64BIT" == true ]; then
-    FILE=`find $SYSTEM/lib64 $VENDOR/lib64 $SYSTEM_EXT/lib64 -type f -name $NAME`
-    if [ ! "$FILE" ]; then
-      if [ "`grep_prop install.hwlib $OPTIONALS`" == 1 ]; then
-        ui_print "- Installing $NAME 64 directly to"
-        ui_print "$SYSTEM/lib64..."
-        cp $MODPATH/system_support/lib64/$NAME $SYSTEM/lib64
-        DES=$SYSTEM/lib64/$NAME
-        if [ -f $MODPATH/system_support/lib64/$NAME ]\
-        && [ ! -f $DES ]; then
-          ui_print "  ! Installation failed."
-          ui_print "    Using $NAME 64 systemlessly."
-          cp -f $MODPATH/system_support/lib64/$NAME $MODPATH/system/lib64
-        fi
-      else
-        ui_print "! $NAME 64 not found."
-        ui_print "  Using $NAME 64 systemlessly."
-        cp -f $MODPATH/system_support/lib64/$NAME $MODPATH/system/lib64
-        ui_print "  If this module still doesn't work, type:"
-        ui_print "  install.hwlib=1"
-        ui_print "  inside $OPTIONALS"
-        ui_print "  and reinstall this module"
-        ui_print "  to install $NAME 64 directly to this ROM."
-        ui_print "  DwYOR!"
-      fi
-      ui_print " "
-    fi
-  fi
-  FILE=`find $SYSTEM/lib $VENDOR/lib $SYSTEM_EXT/lib -type f -name $NAME`
+  FILE=`find $SYSTEM$DIR $SYSTEM_EXT$DIR -type f -name $NAME`
   if [ ! "$FILE" ]; then
-    if [ "`grep_prop install.hwlib $OPTIONALS`" == 1 ]; then
-      ui_print "- Installing $NAME directly to"
-      ui_print "$SYSTEM/lib..."
-      cp $MODPATH/system_support/lib/$NAME $SYSTEM/lib
-      DES=$SYSTEM/lib/$NAME
-      if [ -f $MODPATH/system_support/lib/$NAME ]\
-      && [ ! -f $DES ]; then
-        ui_print "  ! Installation failed."
-        ui_print "    Using $NAME systemlessly."
-        cp -f $MODPATH/system_support/lib/$NAME $MODPATH/system/lib
-      fi
-    else
-      ui_print "! $NAME not found."
-      ui_print "  Using $NAME systemlessly."
-      cp -f $MODPATH/system_support/lib/$NAME $MODPATH/system/lib
-      ui_print "  If this module still doesn't work, type:"
-      ui_print "  install.hwlib=1"
-      ui_print "  inside $OPTIONALS"
-      ui_print "  and reinstall this module"
-      ui_print "  to install $NAME directly to this ROM."
-      ui_print "  DwYOR!"
-    fi
+    ui_print "- Using /system$DIR/$NAME"
+    cp -f $MODPATH/system_support$DIR/$NAME $MODPATH/system$DIR
     ui_print " "
   fi
 done
-sed -i 's|^install.hwlib=1|install.hwlib=0|g' $OPTIONALS
+}
+find_file() {
+DIR=/lib
+run_find_file
 }
 
 # check
-remount_rw
-chcon -R u:object_r:system_lib_file:s0 $MODPATH/system_support/lib*
 NAMES="libhidltransport.so libhwbinder.so"
 find_file
-remount_ro
 rm -rf $MODPATH/system_support
 
 # run

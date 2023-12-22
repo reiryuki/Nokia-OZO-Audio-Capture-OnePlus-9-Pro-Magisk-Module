@@ -1,11 +1,27 @@
-[ -z $MODPATH ] && MODPATH=${0%/*}
+[ ! "$MODPATH" ] && MODPATH=${0%/*}
+[ ! "$API" ] && API=`getprop ro.build.version.sdk`
 
 # destination
-LIBPATH="\/vendor\/lib\/soundfx"
+if [ ! "$libdir" ]; then
+  if [ "$API" -ge 26 ]; then
+    libdir=/vendor
+  else
+    libdir=/system
+  fi
+fi
 MODAEC=`find $MODPATH -type f -name *audio*effects*.conf`
 MODAEX=`find $MODPATH -type f -name *audio*effects*.xml`
 
 # function
+archdir() {
+if [ -f $libdir/lib/soundfx/$LIB ]\
+|| [ -f $MODPATH/system$libdir/lib/soundfx/$LIB ]\
+|| [ -f $MODPATH$libdir/lib/soundfx/$LIB ]; then
+  ARCHDIR=/lib
+else
+  ARCHDIR=/lib64
+fi
+}
 remove_conf() {
 for RMV in $RMVS; do
   sed -i "s|$RMV|removed|g" $MODAEC
@@ -14,6 +30,10 @@ sed -i 's|path /vendor/lib/soundfx/removed||g' $MODAEC
 sed -i 's|path /system/lib/soundfx/removed||g' $MODAEC
 sed -i 's|path /vendor/lib/removed||g' $MODAEC
 sed -i 's|path /system/lib/removed||g' $MODAEC
+sed -i 's|path /vendor/lib64/soundfx/removed||g' $MODAEC
+sed -i 's|path /system/lib64/soundfx/removed||g' $MODAEC
+sed -i 's|path /vendor/lib64/removed||g' $MODAEC
+sed -i 's|path /system/lib64/removed||g' $MODAEC
 sed -i 's|library removed||g' $MODAEC
 sed -i 's|uuid removed||g' $MODAEC
 sed -i "/^        removed {/ {;N s/        removed {\n        }//}" $MODAEC
@@ -107,11 +127,12 @@ LIBNAME=ozo_processing
 NAME=ozo
 UUID=7e384a3b-7850-4a64-a097-884250d8a737
 RMVS="$LIB $LIBNAME $NAME $UUID"
+archdir
 
 # patch audio effects conf
 if [ "$MODAEC" ]; then
   remove_conf
-  sed -i "/^libraries {/a\  $LIBNAME {\n    path $LIBPATH\/$LIB\n  }" $MODAEC
+  sed -i "/^libraries {/a\  $LIBNAME {\n    path \\$libdir\\$ARCHDIR\/soundfx\/$LIB\n  }" $MODAEC
   sed -i "/^effects {/a\  $NAME {\n    library $LIBNAME\n    uuid $UUID\n  }" $MODAEC
   sed -i "/^  camcorder {/a\    $NAME {\n    }" $MODAEC
   sed -i "/^  mic {/a\    $NAME {\n    }" $MODAEC

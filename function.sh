@@ -108,6 +108,8 @@ if [ -d $DIR ]; then
       ln -sf $MIRROR/system_root$DIR $MIRROR
     elif [ -d $MIRROR/vendor$DIR ]; then
       ln -sf $MIRROR/vendor$DIR $MIRROR
+    elif [ -d $MIRROR/system/vendor$DIR ]; then
+      ln -sf $MIRROR/system/vendor$DIR $MIRROR
     fi
   fi
   ui_print " "
@@ -130,7 +132,8 @@ fi
 }
 mount_partitions_to_mirror() {
 unmount_mirror
-if [ "$SYSTEM_ROOT" == true ]; then
+if [ "$SYSTEM_ROOT" == true ]\
+|| [ "$SYSTEM_AS_ROOT" == true ]; then
   DIR=/system_root
   ui_print "- Mount $MIRROR$DIR..."
   mkdir -p $MIRROR$DIR
@@ -180,47 +183,7 @@ rm -rf /metadata/magisk/"$MODID"\
  /cache/magisk/"$MODID"\
  /cust/magisk/"$MODID"
 }
-set_read_write() {
-for NAME in $NAMES; do
-  if [ -e $DIR$NAME ]; then
-    blockdev --setrw $DIR$NAME
-  fi
-done
-}
-remount_rw() {
-DIR=/dev/block/bootdevice/by-name
-NAMES="/vendor$SLOT /cust /system$SLOT /system_ext$SLOT"
-set_read_write
-DIR=/dev/block/mapper
-set_read_write
-if [ "$BOOTMODE" == true ]; then
-  DIR=$MAGISKTMP/block
-  NAMES="/vendor /system_root /system /system_ext"
-  set_read_write
-  mount -o rw,remount $MIRROR/system
-  mount -o rw,remount $MIRROR/system_root
-  mount -o rw,remount $MIRROR/system_ext
-  mount -o rw,remount $MIRROR/vendor
-  mount -o rw,remount /
-else
-  mount -o rw,remount /system_root
-fi
-mount -o rw,remount /system
-mount -o rw,remount /system_ext
-mount -o rw,remount /vendor
-}
-remount_ro() {
-if [ "$BOOTMODE" == true ]; then
-  mount -o ro,remount $MIRROR/system
-  mount -o ro,remount $MIRROR/system_root
-  mount -o ro,remount $MIRROR/system_ext
-  mount -o ro,remount $MIRROR/vendor
-  mount -o ro,remount /
-  mount -o ro,remount /system
-  mount -o ro,remount /system_ext
-  mount -o ro,remount /vendor
-fi
-}
+
 
 
 
