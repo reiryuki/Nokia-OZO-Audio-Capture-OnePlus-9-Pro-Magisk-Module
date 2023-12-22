@@ -241,7 +241,8 @@ done
 
 # check
 if [ $CODEC == true ]; then
-  FILES="/lib/libminijail.so
+  FILES="/etc/seccomp_policy/codec2.vendor.base.policy
+         /lib/libminijail.so
          /lib/libstagefright_bufferpool@2.0.1.so"
   file_check_vendor
 fi
