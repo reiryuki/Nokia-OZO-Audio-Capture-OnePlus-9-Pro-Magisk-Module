@@ -16,11 +16,8 @@ if [ "$API" -ge 24 ]; then
 else
   SERVER=mediaserver
 fi
-PID=`pidof $SERVER`
-if [ "$PID" ]; then
-  killall $SERVER android.hardware.audio@4.0-service-mediatek
-fi
-
+killall $SERVER\
+ android.hardware.audio@4.0-service-mediatek
 
 # function
 ozo_audio_service() {
@@ -117,7 +114,7 @@ if [ -d $AML ] && [ ! -f $AML/disable ]\
 fi
 
 # wait
-until [ "`getprop sys.boot_completed`" == "1" ]; do
+until [ "`getprop sys.boot_completed`" == 1 ]; do
   sleep 10
 done
 

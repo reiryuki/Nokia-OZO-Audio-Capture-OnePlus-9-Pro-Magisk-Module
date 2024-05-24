@@ -127,21 +127,31 @@ fi
 
 # function
 mount_bind_file() {
-if [ -f $MODFILE ]; then
-  for FILE in $FILES; do
+for FILE in $FILES; do
+  if echo $FILE | grep libhidlbase.so; then
+    DES=`echo $FILE | sed 's|libhidlbase.so|libutils.so|g'`
+    if grep _ZN7android8String16aSEOS0_ $DES; then
+      umount $FILE
+      mount -o bind $MODFILE $FILE
+    fi
+  else
     umount $FILE
     mount -o bind $MODFILE $FILE
-  done
-fi
+  fi
+done
 }
 mount_bind_to_apex() {
 for NAME in $NAMES; do
   MODFILE=$MODPATH/system/lib64/$NAME
-  FILES=`find /apex /system/apex -type f -path *lib64/$NAME`
-  mount_bind_file
+  if [ -f $MODFILE ]; then
+    FILES=`find /apex /system/apex -path *lib64/* -type f -name $NAME`
+    mount_bind_file
+  fi
   MODFILE=$MODPATH/system/lib/$NAME
-  FILES=`find /apex /system/apex -type f -path *lib/$NAME`
-  mount_bind_file
+  if [ -f $MODFILE ]; then
+    FILES=`find /apex /system/apex -path *lib/* -type f -name $NAME`
+    mount_bind_file
+  fi
 done
 }
 
