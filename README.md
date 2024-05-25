@@ -11,6 +11,7 @@
 
 ## Sources
 - https://dumps.tadiphone.dev/dumps/oneplus/oneplus9pro qssi-user-11-RKQ1.201105.002-2111112053-release-keys
+- libhidlbase.so, libhidltransport.so, libhwbinder.so, libbase.so, & libui.so: CrDroid ROM Android 13
 
 ## Screenshots
 - https://t.me/androidryukimodsdiscussions/116460
@@ -20,7 +21,7 @@
 
 ## Installation Guide & Download Link
 - Install this module https://www.pling.com/p/1924947/ via Magisk app or KernelSU app or Recovery if Magisk installed
-- Install AML Magisk Module https://t.me/androidryukimodsdiscussions/29836 only if using any other audio mod module
+- Install AML Magisk Module https://t.me/androidryukimodsdiscussions/29836 only if using any other else audio mod module
 - Reboot
 
 ## Optionals
@@ -36,16 +37,14 @@
 
 ## Tested on
 - Android 13 AOSP ROM & CrDroid ROM
+- Android 14 LineageOS ROM
 
-## Credits and contributors
+## Credits and Contributors
 - https://t.me/viperatmos
 - https://t.me/androidryukimodsdiscussions
 - You can contribute ideas about this Magisk Module here: https://t.me/androidappsportdevelopment
 
-## Thanks for Donations
-This Magisk Module is always will be free but you can however show us that you are care by making a donations:
-- https://ko-fi.com/reiryuki
-- https://www.paypal.me/reiryuki
+## Sponsors
 - https://t.me/androidryukimodsdiscussions/2619
 
 

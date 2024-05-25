@@ -29,6 +29,13 @@ if [ "`grep_prop debug.log $OPTIONALS`" == 1 ]; then
   ui_print " "
 fi
 
+# recovery
+if [ "$BOOTMODE" != true ]; then
+  MODPATH_UPDATE=`echo $MODPATH | sed 's|modules/|modules_update/|g'`
+  rm -f $MODPATH/update
+  rm -rf $MODPATH_UPDATE
+fi
+
 # run
 . $MODPATH/function.sh
 
@@ -71,15 +78,6 @@ else
   ui_print " "
 fi
 
-# directory
-if [ "$API" -le 25 ]; then
-  ui_print "- /vendor/lib*/soundfx is not supported in SDK 25 and bellow"
-  ui_print "  Using /system/lib*/soundfx instead"
-  cp -rf $MODPATH/system/vendor/lib* $MODPATH/system
-  rm -rf $MODPATH/system/vendor/lib*
-  ui_print " "
-fi
-
 # recovery
 mount_partitions_in_recovery
 
@@ -88,23 +86,6 @@ magisk_setup
 
 # path
 SYSTEM=`realpath $MIRROR/system`
-if [ "$BOOTMODE" == true ]; then
-  if [ ! -d $MIRROR/vendor ]; then
-    mount_vendor_to_mirror
-  fi
-  if [ ! -d $MIRROR/product ]; then
-    mount_product_to_mirror
-  fi
-  if [ ! -d $MIRROR/system_ext ]; then
-    mount_system_ext_to_mirror
-  fi
-  if [ ! -d $MIRROR/odm ]; then
-    mount_odm_to_mirror
-  fi
-  if [ ! -d $MIRROR/my_product ]; then
-    mount_my_product_to_mirror
-  fi
-fi
 VENDOR=`realpath $MIRROR/vendor`
 PRODUCT=`realpath $MIRROR/product`
 SYSTEM_EXT=`realpath $MIRROR/system_ext`
@@ -114,9 +95,13 @@ MY_PRODUCT=`realpath $MIRROR/my_product`
 # check
 if [ $CODEC == true ]; then
   NAME=_ZN7android23sp_report_stack_pointerEv
+  DIR=/lib
   DES=libcodec2_soft_ozodec.so
-  LISTS=`strings $MODPATH/system_codec/vendor/lib/$DES | grep ^lib | grep .so | sed -e "s|$DES||g" -e 's|libozoc2store.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libav_ozodecoder.so||g' -e 's|libav_ozoencoder.so||g'`
-  FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
+  LISTS=`strings $MODPATH/system_codec/vendor$DIR/$DES\
+          | grep ^lib | grep .so | sed -e "s|$DES||g"\
+          -e 's|libozoc2store.so||g' -e 's|libcodec2_vndk.so||g'\
+          -e 's|libav_ozodecoder.so||g' -e 's|libav_ozoencoder.so||g'`
+  FILE=`for LIST in $LISTS; do echo $SYSTEM$DIR/$LIST; done`
   ui_print "- Checking"
   ui_print "$NAME"
   ui_print "  function at"
@@ -138,114 +123,108 @@ else
   ui_print "  Does not use OZO Audio decoder"
   ui_print " "
 fi
-rm -rf $MODPATH/system_codec
-
-# check
-NAME=_ZN7android8hardware23getOrCreateCachedBinderEPNS_4hidl4base4V1_05IBaseE
-DES=android.hardware.media.c2@1.0.so
-LIB=libhidlbase.so
-if [ $CODEC == true ]; then
-  if [ -f $VENDOR/lib/$DES ]; then
-    ui_print "- Detected /vendor/lib/$DES"
-    ui_print " "
-    rm -f $MODPATH/system/vendor/lib/$DES
-  else
-    LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed "s|$DES||g"`
-    FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-    ui_print "- Checking"
-    ui_print "$NAME"
-    ui_print "  function at"
-    ui_print "$FILE"
-    ui_print "  Please wait..."
-    if ! grep -q $NAME $FILE; then
-      ui_print "  Replaces /system/lib/$LIB"
-      mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
-    fi
-    ui_print " "
-  fi
-fi
-
-# check
-NAME=_ZN7android4base15WriteStringToFdERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS0_11borrowed_fdE
-DES="$MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
-     $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so"
-LIB=libbase.so
-if [ $CODEC == true ]; then
-  if [ -f $VENDOR/lib/libavservices_minijail_vendor.so ]; then
-    ui_print "- Detected /vendor/lib/libavservices_minijail_vendor.so"
-    ui_print " "
-    rm -f $MODPATH/system/vendor/lib/libavservices_minijail_vendor.so
-  fi
-  if [ -f $VENDOR/lib/libcodec2_hidl@1.0.so ]; then
-    ui_print "- Detected /vendor/lib/libcodec2_hidl@1.0.so"
-    ui_print " "
-    rm -f $MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so
-  fi
-  if [ ! -f $VENDOR/lib/libavservices_minijail_vendor.so ]\
-  || [ ! -f $VENDOR/lib/libcodec2_hidl@1.0.so ]; then
-    LISTS=`strings $DES | grep .so | sed -e 's|libavservices_minijail_vendor.so||g' -e 's|libcodec2_hidl@1.0.so||g' -e 's|android.hardware.media.c2@1.0.so||g' -e 's|libcodec2_vndk.so||g' -e 's|libstagefright_bufferpool@2.0.1.so||g' -e 's|libminijail.so||g' -e 's|kXoso||g'`
-    LISTS=`echo $LISTS | tr ' ' '\n' | sort | uniq`
-    FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-    ui_print "- Checking"
-    ui_print "$NAME"
-    ui_print "  function at"
-    ui_print "$FILE"
-    ui_print "  Please wait..."
-    if ! grep -q $NAME $FILE; then
-      ui_print "  Replaces /system/lib/$LIB"
-      mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
-    fi
-    ui_print " "
-  fi
-fi
-
-# check
-NAME=_ZN7android22GraphicBufferAllocator17allocateRawHandleEjjijyPPK13native_handlePjNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEE
-DES=libcodec2_vndk.so
-LIB=libui.so
-if [ $CODEC == true ]; then
-  if [ -f $VENDOR/lib/$DES ]; then
-    ui_print "- Detected /vendor/lib/$DES"
-    ui_print " "
-    rm -f $MODPATH/system/vendor/lib/$DES
-  else
-    LISTS=`strings $MODPATH/system/vendor/lib/$DES | grep .so | sed -e "s|$DES||g" -e 's|libstagefright_bufferpool@2.0.1.so||g'`
-    FILE=`for LIST in $LISTS; do echo $SYSTEM/lib/$LIST; done`
-    ui_print "- Checking"
-    ui_print "$NAME"
-    ui_print "  function at"
-    ui_print "$FILE"
-    ui_print "  Please wait..."
-    if ! grep -q $NAME $FILE; then
-      ui_print "  Replaces /system/lib/$LIB"
-      mv -f $MODPATH/system_support/lib/$LIB $MODPATH/system/lib
-    fi
-    ui_print " "
-  fi
-fi
 
 # function
 file_check_vendor() {
 for FILE in $FILES; do
   DES=$VENDOR$FILE
   DES2=$ODM$FILE
-#  if [ -f $DES ] || [ -f $DES2 ]; then
-  if [ -f $DES ]; then
-#    ui_print "- Detected $FILE"
-    ui_print "- Detected /vendor$FILE"
+  if [ -f $DES ] || [ -f $DES2 ]; then
+    ui_print "- Detected $FILE"
     ui_print " "
     rm -f $MODPATH/system/vendor$FILE
   fi
 done
 }
+check_function() {
+if [ -f $MODPATH/system_support$DIR/$LIB ]; then
+  ui_print "- Checking"
+  ui_print "$NAME"
+  ui_print "  function at"
+  ui_print "$FILE"
+  ui_print "  Please wait..."
+  if ! grep -q $NAME $FILE; then
+    ui_print "  Function not found."
+    ui_print "  Replaces /system$DIR/$LIB."
+    mv -f $MODPATH/system_support$DIR/$LIB $MODPATH/system$DIR
+    [ "$MES" ] && ui_print "$MES"
+  fi
+  ui_print " "
+fi
+}
+find_file() {
+for LIB in $LIBS; do
+  if [ -f $MODPATH/system_support$DIR/$LIB ]; then
+    FILE=`find $SYSTEM$DIR $SYSTEM_EXT$DIR -type f -name $LIB`
+    if [ ! "$FILE" ]; then
+      ui_print "- Using /system$DIR/$LIB."
+      mv -f $MODPATH/system_support$DIR/$LIB $MODPATH/system$DIR
+      ui_print " "
+    fi
+  fi
+done
+}
 
 # check
+DIR=/lib
 if [ $CODEC == true ]; then
-  FILES="/etc/seccomp_policy/codec2.vendor.base.policy
-         /lib/libminijail.so
-         /lib/libstagefright_bufferpool@2.0.1.so"
+  FILES="$DIR/android.hardware.media.c2@1.0.so
+         $DIR/libcodec2_hidl@1.0.so
+         $DIR/libcodec2_vndk.so
+         $DIR/libavservices_minijail_vendor.so
+         $DIR/libminijail.so
+         $DIR/libstagefright_bufferpool@2.0.1.so"
   file_check_vendor
+  FILE=/etc/seccomp_policy/codec2.vendor.base.policy
+  if [ -f $VENDOR$FILE ]; then
+    ui_print "- Detected /vendor$FILE"
+    rm -f $MODPATH/system/vendor$FILE
+    ui_print " "
+  fi
 fi
+NAME=_ZN7android8hardware23getOrCreateCachedBinderEPNS_4hidl4base4V1_05IBaseE
+DES=android.hardware.media.c2@1.0.so
+LIB=libhidlbase.so
+if [ $CODEC == true ]; then
+  if [ -f $MODPATH/system/vendor$DIR/$DES ]; then
+    LISTS=`strings $MODPATH/system/vendor$DIR/$DES | grep .so | sed "s|$DES||g"`
+    FILE=`for LIST in $LISTS; do echo $SYSTEM$DIR/$LIST; done`
+    check_function
+  fi
+fi
+NAME=_ZN7android4base15WriteStringToFdERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEENS0_11borrowed_fdE
+DES="$MODPATH/system/vendor$DIR/libavservices_minijail_vendor.so
+     $MODPATH/system/vendor$DIR/libcodec2_hidl@1.0.so"
+LIB=libbase.so
+if [ $CODEC == true ]; then
+  if [ -f $MODPATH/system/vendor$DIR/libavservices_minijail_vendor.so ]\
+  || [ -f $MODPATH/system/vendor$DIR/libcodec2_hidl@1.0.so ]; then
+    LISTS=`strings $DES | grep .so\
+            | sed -e 's|libavservices_minijail_vendor.so||g'\
+            -e 's|libcodec2_hidl@1.0.so||g'\
+            -e 's|android.hardware.media.c2@1.0.so||g'\
+            -e 's|libcodec2_vndk.so||g'\
+            -e 's|libstagefright_bufferpool@2.0.1.so||g'\
+            -e 's|libminijail.so||g' -e 's|kXoso||g'`
+    LISTS=`echo $LISTS | tr ' ' '\n' | sort | uniq`
+    FILE=`for LIST in $LISTS; do echo $SYSTEM$DIR/$LIST; done`
+    check_function
+  fi
+fi
+NAME=_ZN7android22GraphicBufferAllocator17allocateRawHandleEjjijyPPK13native_handlePjNSt3__112basic_stringIcNS6_11char_traitsIcEENS6_9allocatorIcEEEE
+DES=libcodec2_vndk.so
+LIB=libui.so
+if [ $CODEC == true ]; then
+  if [ -f $MODPATH/system/vendor$DIR/$DES ]; then
+    LISTS=`strings $MODPATH/system/vendor$DIR/$DES | grep .so\
+            | sed -e "s|$DES||g"\
+            -e 's|libstagefright_bufferpool@2.0.1.so||g'`
+    FILE=`for LIST in $LISTS; do echo $SYSTEM$DIR/$LIST; done`
+    check_function
+  fi
+fi
+LIBS="libhidltransport.so libhwbinder.so"
+find_file
 
 # sepolicy
 FILE=$MODPATH/sepolicy.rule
@@ -260,7 +239,9 @@ mv -f $MODPATH/aml.sh $MODPATH/.aml.sh
 
 # cleaning
 ui_print "- Cleaning..."
-rm -rf $MODPATH/unused
+rm -rf $MODPATH/system_codec\
+ $MODPATH/system_support\
+ $MODPATH/unused
 remove_sepolicy_rule
 ui_print " "
 
@@ -292,35 +273,22 @@ elif [ -d $DIR ]\
   ui_print " "
 fi
 
-# function
-run_find_file() {
-for NAME in $NAMES; do
-  FILE=`find $SYSTEM$DIR $SYSTEM_EXT$DIR -type f -name $NAME`
-  if [ ! "$FILE" ]; then
-    ui_print "- Using /system$DIR/$NAME"
-    cp -f $MODPATH/system_support$DIR/$NAME $MODPATH/system$DIR
-    ui_print " "
-  fi
-done
-}
-find_file() {
-DIR=/lib
-run_find_file
-}
-
-# check
-NAMES="libhidltransport.so libhwbinder.so"
-find_file
-rm -rf $MODPATH/system_support
+# directory
+if [ "$API" -le 25 ]; then
+  ui_print "- /vendor/lib*/soundfx is not supported in SDK 25 and bellow"
+  ui_print "  Using /system/lib*/soundfx instead"
+  cp -rf $MODPATH/system/vendor/lib* $MODPATH/system
+  rm -rf $MODPATH/system/vendor/lib*
+  ui_print " "
+fi
 
 # run
 . $MODPATH/copy.sh
 . $MODPATH/.aml.sh
 
 # unmount
-if [ "$BOOTMODE" == true ] && [ ! "$MAGISKPATH" ]; then
-  unmount_mirror
-fi
+unmount_mirror
+
 
 
 
