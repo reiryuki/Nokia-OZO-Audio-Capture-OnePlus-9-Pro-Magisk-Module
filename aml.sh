@@ -9,8 +9,8 @@ if [ ! "$libdir" ]; then
     libdir=/system
   fi
 fi
-MODAEC=`find $MODPATH -type f -name *audio*effects*.conf`
-MODAEX=`find $MODPATH -type f -name *audio*effects*.xml`
+MODAECS=`find $MODPATH -type f -name *audio*effects*.conf`
+MODAEXS=`find $MODPATH -type f -name *audio*effects*.xml`
 
 # function
 archdir() {
@@ -65,7 +65,7 @@ sed -i 's|<apply effect="removed" />||g' $MODAEX
 }
 
 # setup audio effects conf
-if [ "$MODAEC" ]; then
+for MODAEC in $MODAECS; do
   if ! grep -q '^pre_processing {' $MODAEC; then
     sed -i '$a\
 \
@@ -93,11 +93,12 @@ pre_processing {\
       sed -i "/^pre_processing {/a\  mic {\n  }" $MODAEC
     fi
   fi
-fi
+done
 
 # setup audio effects xml
-if [ "$MODAEX" ]; then
-  if ! grep -q '<preprocess>' $MODAEX; then
+for MODAEX in $MODAEXS; do
+  if ! grep -q '<preprocess>' $MODAEX\
+  || grep -q '<!-- Audio pre processor' $MODAEX; then
     sed -i '/<\/effects>/a\
     <preprocess>\
         <stream type="mic">\
@@ -123,7 +124,7 @@ if [ "$MODAEX" ]; then
       sed -i "/<preprocess>/a\        <stream type=\"mic\">\n        <\/stream>" $MODAEX
     fi
   fi
-fi
+done
 
 # patch audio effects
 LIB=libozoprocessing.so
@@ -133,7 +134,7 @@ UUID=7e384a3b-7850-4a64-a097-884250d8a737
 RMVS="$LIB $LIBNAME $NAME $UUID"
 archdir
 if [ "$ARCHDIR" ]; then
-  if [ "$MODAEC" ]; then
+  for MODAEC in $MODAECS; do
     remove_conf
     sed -i "/^libraries {/a\  $LIBNAME {\n    path \\$libdir\\$ARCHDIR\/soundfx\/$LIB\n  }" $MODAEC
     sed -i "/^effects {/a\  $NAME {\n    library $LIBNAME\n    uuid $UUID\n  }" $MODAEC
@@ -141,8 +142,8 @@ if [ "$ARCHDIR" ]; then
     sed -i "/^  mic {/a\    $NAME {\n    }" $MODAEC
     sed -i "/^  voice_recognition {/a\    $NAME {\n    }" $MODAEC
     sed -i "/^  voice_communication {/a\    $NAME {\n    }" $MODAEC
-  fi
-  if [ "$MODAEX" ]; then
+  done
+  for MODAEX in $MODAEXS; do
     remove_xml
     sed -i "/<libraries>/a\        <library name=\"$LIBNAME\" path=\"$LIB\"\/>" $MODAEX
     sed -i "/<effects>/a\        <effect name=\"$NAME\" library=\"$LIBNAME\" uuid=\"$UUID\"\/>" $MODAEX
@@ -150,7 +151,7 @@ if [ "$ARCHDIR" ]; then
     sed -i "/<stream type=\"mic\">/a\            <apply effect=\"$NAME\"\/>" $MODAEX
     sed -i "/<stream type=\"voice_recognition\">/a\            <apply effect=\"$NAME\"\/>" $MODAEX
     sed -i "/<stream type=\"voice_communication\">/a\            <apply effect=\"$NAME\"\/>" $MODAEX
-  fi
+  done
 fi
 
 

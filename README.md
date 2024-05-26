@@ -5,7 +5,7 @@
 - The MIT license specified here is for the Magisk Module only, not for Nokia OZO Audio Capture blobs.
 
 ## Descriptions
-- Audio quality enhancements for audio/video recordings ported from OnePlus 9 Pro (oneplus9pro) and integrated as a Magisk Module for all supported and rooted devices with Magisk
+- Audio quality enhancement for audio/video recordings ported from OnePlus 9 Pro (oneplus9pro) and integrated as a Magisk Module for all supported and rooted devices with Magisk
 - Pre process type soundfx
 - There is no user interface
 
