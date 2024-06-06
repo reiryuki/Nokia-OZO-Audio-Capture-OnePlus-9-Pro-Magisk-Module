@@ -168,7 +168,8 @@ done
 # check
 DIR=/lib
 if [ $CODEC == true ]; then
-  FILES="$DIR/android.hardware.media.c2@1.0.so
+  FILES="/etc/media_codecs_ozo_audio.xml
+         $DIR/android.hardware.media.c2@1.0.so
          $DIR/libcodec2_hidl@1.0.so
          $DIR/libcodec2_vndk.so
          $DIR/libavservices_minijail_vendor.so

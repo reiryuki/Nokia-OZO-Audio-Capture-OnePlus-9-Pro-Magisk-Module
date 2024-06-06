@@ -11,7 +11,8 @@
 
 ## Sources
 - https://dumps.tadiphone.dev/dumps/oneplus/oneplus9pro qssi-user-11-RKQ1.201105.002-2111112053-release-keys
-- libhidlbase.so, libhidltransport.so, libhwbinder.so, libbase.so, & libui.so: CrDroid ROM Android 13
+- system_support: CrDroid ROM Android 13
+- libmagiskpolicy.so: Kitsune Mask R65C33E4F
 
 ## Screenshots
 - https://t.me/androidryukimodsdiscussions/116460
