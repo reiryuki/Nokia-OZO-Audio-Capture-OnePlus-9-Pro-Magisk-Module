@@ -30,25 +30,30 @@ for NAME in $NAMES; do
   fi
 done
 # run
-SERVICES=`realpath /vendor`/bin/hw/vendor.ozoaudio.media.c2@1.0-service
-for SERVICE in $SERVICES; do
-  killall $SERVICE
-  if ! stat -c %a $SERVICE | grep -E '755|775|777|757'\
-  || [ "`stat -c %u.%g $SERVICE`" != 0.2000 ]; then
-    mount -o remount,rw $SERVICE
-    chmod 0755 $SERVICE
-    chown 0.2000 $SERVICE
-    chcon u:object_r:mediacodec_exec:s0 $SERVICE
+NAMES=vendor.ozoaudio.media.c2@1.0-service
+for NAME in $NAMES; do
+  SERVICE=`realpath /vendor`/bin/hw/$NAME
+  if ! pidof $NAME && [ -f $SERVICE ]; then
+    if ! stat -c %a $SERVICE | grep -E '755|775|777|757'; then
+      mount -o remount,rw $SERVICE
+      chmod 0755 $SERVICE
+    fi
+    if [ "$API" -ge 26 ]\
+    && [ "`stat -c %u.%g $SERVICE`" != 0.2000 ]; then
+      mount -o remount,rw $SERVICE
+      chown 0.2000 $SERVICE
+      chcon u:object_r:mediacodec_exec:s0 $SERVICE
+    fi
+    $SERVICE &
+    PID=`pidof $NAME`
   fi
-  $SERVICE &
-  PID=`pidof $SERVICE`
 done
 }
 check_service() {
-for SERVICE in $SERVICES; do
-  if ! pidof $SERVICE; then
+for NAME in $NAMES; do
+  if ! pidof $NAME && [ -f $SERVICE ]; then
     $SERVICE &
-    PID=`pidof $SERVICE`
+    PID=`pidof $NAME`
   fi
 done
 }

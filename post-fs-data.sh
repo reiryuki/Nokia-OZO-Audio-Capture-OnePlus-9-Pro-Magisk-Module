@@ -156,7 +156,7 @@ done
 }
 
 # mount
-NAMES="libhidlbase.so libbase.so libui.so"
+NAMES="libhidlbase.so libutils.so libbase.so libui.so"
 mount_bind_to_apex
 
 
