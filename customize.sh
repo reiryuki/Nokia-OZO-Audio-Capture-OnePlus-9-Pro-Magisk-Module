@@ -3,6 +3,7 @@ ui_print " "
 
 # var
 UID=`id -u`
+[ ! "$UID" ] && UID=0
 LIST32BIT=`grep_get_prop ro.product.cpu.abilist32`
 if [ ! "$LIST32BIT" ]; then
   LIST32BIT=`grep_get_prop ro.system.product.cpu.abilist32`
@@ -113,13 +114,15 @@ fi
 # function
 file_check_vendor() {
 for FILE in $FILES; do
-  DES=$VENDOR$FILE
-  DES2=$ODM$FILE
-  if [ -f $DES ] || [ -f $DES2 ]; then
-    ui_print "- Detected $FILE"
-    ui_print " "
-    rm -f $MODPATH/system/vendor$FILE
-  fi
+  DESS="$VENDOR$FILE $ODM$FILE"
+  for DES in $DESS; do
+    if [ -f $DES ]; then
+      ui_print "- Detected"
+      ui_print "$DES"
+      rm -f $MODPATH/system/vendor$FILE
+      ui_print " "
+    fi
+  done
 done
 }
 check_function() {
@@ -173,11 +176,11 @@ if [ $CODEC == true ]; then
   FILES="/etc/media_codecs_ozo_audio.xml
          $DIR/android.hardware.media.c2@1.0.so
          $DIR/libcodec2_hidl@1.0.so
-         $DIR/libcodec2_vndk.so
          $DIR/libavservices_minijail_vendor.so
          $DIR/libminijail.so
          $DIR/libstagefright_bufferpool@2.0.1.so
          $DIR/android.hardware.media.bufferpool@2.0.so"
+#         $DIR/libcodec2_vndk.so
   file_check_vendor
   FILE=/etc/seccomp_policy/codec2.vendor.base.policy
   if [ -f $VENDOR$FILE ]; then
@@ -374,6 +377,19 @@ $MODPATH/system/vendor/lib/libcodec2_vndk.so"
   mv -f $MODPATH/system/lib/$NAME $MODPATH/system/vendor/lib
   NAME=android.hardware.common-V1-ndk_platform.so
   mv -f $MODPATH/system/lib/$NAME $MODPATH/system/vendor/lib
+fi
+NAME=libcodec2_vndk.so
+NAME2=libozo_c2_vndk.so
+FILE=$MODPATH/system/vendor/lib/$NAME
+MODFILE=$MODPATH/system/vendor/lib/$NAME2
+if [ -f $FILE ]; then
+  rename_file
+  FILE="$MODPATH/system/vendor/lib/$NAME2
+$MODPATH/system/vendor/lib/libcodec2_hidl@1.0.so
+$MODPATH/system/vendor/lib/libozoc2store.so
+$MODPATH/system/vendor/lib/libcodec2_soft_ozoenc.so
+$MODPATH/system/vendor/lib/libcodec2_soft_ozodec.so"
+  change_name
 fi
 
 unused() {
