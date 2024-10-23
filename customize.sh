@@ -4,9 +4,16 @@ ui_print " "
 # var
 UID=`id -u`
 [ ! "$UID" ] && UID=0
-LIST32BIT=`grep_get_prop ro.product.cpu.abilist32`
-if [ ! "$LIST32BIT" ]; then
-  LIST32BIT=`grep_get_prop ro.system.product.cpu.abilist32`
+ABILIST=`grep_get_prop ro.product.cpu.abilist`
+if [ ! "$ABILIST" ]; then
+  ABILIST=`grep_get_prop ro.system.product.cpu.abilist`
+fi
+ABILIST32=`grep_get_prop ro.product.cpu.abilist32`
+if [ ! "$ABILIST32" ]; then
+  ABILIST32=`grep_get_prop ro.system.product.cpu.abilist32`
+fi
+if [ ! "$ABILIST32" ]; then
+  [ -f /system/lib/libandroid.so ] && ABILIST32=true
 fi
 
 # log
@@ -57,26 +64,36 @@ else
 fi
 ui_print " "
 
-# bit
-if [ "$IS64BIT" == true ]; then
-  ui_print "- 64 bit architecture"
+# architecture
+if [ "$ABILIST" ]; then
+  ui_print "- $ABILIST architecture"
   ui_print " "
-  # 32 bit
-  if [ "$LIST32BIT" ]; then
-    ui_print "- 32 bit library support"
-    CODEC=true
+fi
+NAME=arm64-v8a
+NAME2=armeabi-v7a
+CODEC=true
+if ! echo "$ABILIST" | grep -q $NAME; then
+  if echo "$ABILIST" | grep -q $NAME2; then
+    rm -rf `find $MODPATH/system -type d -name *64*`
   else
-    ui_print "- Doesn't support 32 bit library"
-    rm -rf $MODPATH/armeabi-v7a $MODPATH/x86\
-     $MODPATH/system*/lib $MODPATH/system*/vendor/lib
-    CODEC=false
+    if [ "$BOOTMODE" == true ]; then
+      ui_print "! This ROM doesn't support $NAME nor $NAME2 architecture"
+    else
+      ui_print "! This Recovery doesn't support $NAME nor $NAME2 architecture"
+      ui_print "  Try to install via Magisk app instead"
+    fi
+    abort
   fi
-  ui_print " "
-else
-  ui_print "- 32 bit architecture"
-  rm -rf `find $MODPATH -type d -name *64*`
-  CODEC=true
-  ui_print " "
+fi
+if ! echo "$ABILIST" | grep -q $NAME2; then
+  rm -rf $MODPATH/system*/lib\
+   $MODPATH/system*/vendor/lib
+  CODEC=false
+  if [ "$BOOTMODE" != true ]; then
+    ui_print "! This Recovery doesn't support $NAME2 architecture"
+    ui_print "  Try to install via Magisk app instead"
+    ui_print " "
+  fi
 fi
 
 # sdk
@@ -134,7 +151,7 @@ if [ -f $MODPATH/system_support$DIR/$LIB ]; then
   ui_print "  Please wait..."
   if ! grep -q $NAME $FILE; then
     ui_print "  Function not found."
-    ui_print "  Replaces /system$DIR/$LIB."
+    ui_print "  Replaces /system$DIR/$LIB systemlessly."
     mv -f $MODPATH/system_support$DIR/$LIB $MODPATH/system$DIR
     [ "$MES" ] && ui_print "$MES"
   fi
@@ -150,7 +167,7 @@ if [ -f $MODPATH/system_support$DIR/$LIB ]; then
   ui_print "  Please wait..."
   if grep -q $NAME $FILE; then
     ui_print "  Unsupported function."
-    ui_print "  Replaces /system$DIR/$LIB."
+    ui_print "  Replaces /system$DIR/$LIB systemlessly."
     mv -f $MODPATH/system_support$DIR/$LIB $MODPATH/system$DIR
     [ "$MES" ] && ui_print "$MES"
   fi
@@ -307,7 +324,7 @@ if [ "`grep_prop data.cleanup $OPTIONALS`" == 1 ]; then
   ui_print " "
 elif [ -d $DIR ]\
 && [ "$PREVMODNAME" != "$MODNAME" ]; then
-  ui_print "- Different version detected"
+  ui_print "- Different module name is detected"
   ui_print "  Cleaning-up $MODID data..."
   cleanup
   ui_print " "

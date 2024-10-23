@@ -1,8 +1,8 @@
 id=OZOAudioCapture
 name=Nokia OZO Audio Capture OnePlus 9 Pro
-version=v1.0
-versionCode=10
+version=v1.1
+versionCode=11
 author=Rei Ryuki the Fixer
-description=Pre Process type sound effect ported from OnePlus 9 Pro for any Android version. Enhance your audio quality in audio/video recordings.
+description=Pre Process type sound effect ported from OnePlus 9 Pro for any Android version, arm64-v8a or armeabi-v7a architecture. Enhances audio quality in audio/video recordings.
 
 
